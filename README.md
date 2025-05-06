@@ -1,5 +1,5 @@
 # Analysis-of-Electricity-Power-Systems
-# Optimization of Power Generation for a Small Private Producer
+# Calculation of the optimal start-up, operation and reservation schedule of (thermal and hydroelectric) units of a private producer
 
 ## 📘 Course
 **Power System Analysis** (8th Semester)

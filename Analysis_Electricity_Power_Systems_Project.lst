@@ -1,0 +1,2218 @@
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 1
+Optimal_Unit_Scheduling
+C o m p i l a t i o n
+
+
+   2   
+          ------- Aristotle University of Thessaloniki (AUTH)-------
+          ------- Electrical and Computer Engineering (ECE)  -------
+                 Analysis of Electricity Power Systems Project
+                 Ioannis Deirmentzoglou AEM : 10015 , deirmentz@ece.auth.gr
+   9   
+  10  Sets
+  11   
+  12   i    Production Units (Thermal and Hydroelectric) /AgiDim, Komotini, Kremasta, Sfikia, Stratos/
+  13   j(i) Hydroelectric Units                          /Kremasta, Sfikia, Stratos/
+  14   t    Total hours of time programming horizon      /0*24/
+  15   iData    Unit Data Characteristics                /Pmax, Pmin, Emax, Emin, b, NLC, SUC, SDC, RU, RD, UT, DT, P_ini, T_ini, u_ini/
+  16  ;
+  17   
+  18  Alias (t,it) ;
+  19   
+  20  Table    UnitData(i,iData)  Unit Data
+  21   
+  22                   Pmax    Pmin    Emax     Emin       b       NLC     SUC      SDC      RU      RD      UT     DT     P_ini     T_ini    u_ini
+  23      AgiDim       280     160     NA       NA         34      2500    15000    1200     170     170     12     6      0         -10      0
+  24      Komotini     420     180     NA       NA         45      1600    3700     300      360     360     4      3      400       4        1
+  25      Kremasta     300     0       1700     1000       0       0       0        0        300     300     1      1      150       10       1
+  26      Sfikia       250     0       1250     800        0       0       0        0        250     250     1      1      0         -10      0
+  27      Stratos      250     0       1450     700        0       0       0        0        250     250     1      1      0         -15      0
+  28  ;
+  29   
+  30   
+  31  Variables
+  32   p(i,t) Power output of unit 'i' at time 't' (MW)
+  33   u(i,t) Binary variable equal to 1 if unit 'i' is running at time 't'
+  34   y(i,t) Binary variable equal to 1 if unit 'i' is synchronized at the beginning of time 't'
+  35   z(i,t) Binary variable equal to 1 if unit 'i' is desynchronized at the beginning of time 't'
+  36   Profit
+  37  ;
+  38   
+  39  Binary Variable
+  40    u
+  41    y
+  42    z
+  43  ;
+  44   
+  45  Positive Variables p
+  46   
+  47  ;
+  48   
+  49   
+  50   
+  51  Parameters
+  52    lamda_t(t) Price of energy at time 't'
+  53   
+  54    Pmax(i) Maximum net power output of unit 'i'
+  55    Pmin(i) Minimum net power output of unit 'i'
+  56   
+  57    Emax(j) Maximum electricity production of hydroelectric unit 'i'
+  58    Emin(j) Minimum electricity production of hydroelectric unit 'i'
+  59   
+  60    b(i)    Differential operating cost of unit 'i'
+  61    NLC(i)  Fixed operating cost of unit 'i'
+  62    SUC(i)  Startup cost of unit 'i'
+  63    SDC(i)  Booking cost of unit 'i'
+  64   
+  65    RU(i)   Maximum rate of increase of power output of unit 'i'
+  66    RD(i)   Maximum rate of reduction of power output of unit 'i'
+  67   
+  68    UT(i)   Minimum operating time of unit 'i'
+  69    DT(i)   Minimum holding time of unit 'i'
+  70   
+  71    P_ini(i) Output power of unit 'i' at the beginning of the programming horizon
+  72    T_ini(i) Number of hours unit 'i' was on or off at its start planning horizon
+  73    u_ini(i) Operating state of unit 'i' at the beginning of the planning horizon
+  74  ;
+  75   
+  76   Pmax(i) = UnitData(i,"Pmax")   ;
+  77   Pmin(i) = UnitData(i,"Pmin")   ;
+  78   
+  79   Emax(j) = UnitData(j,"Emax")   ;
+  80   Emin(j) = UnitData(j,"Emin")   ;
+  81   
+  82   b(i)     = UnitData(i,"b")     ;
+  83   NLC(i)   = UnitData(i,"NLC")   ;
+  84   SUC(i)   = UnitData(i,"SUC")   ;
+  85   SDC(i)   = UnitData(i,"SDC")   ;
+  86   
+  87   RU(i)    = UnitData(i,"RU")    ;
+  88   RD(i)    = UnitData(i,"RD")    ;
+  89   
+  90   UT(i)    = UnitData(i,"UT")    ;
+  91   DT(i)    = UnitData(i,"DT")    ;
+  92   
+  93   P_ini(i) = UnitData(i,"P_ini") ;
+  94   T_ini(i) = UnitData(i,"T_ini") ;
+  95   u_ini(i) = UnitData(i,"u_ini") ;
+  96   
+  97   
+  98   
+  99  Parameters
+ 100   
+ 101      lamda_t(t)   Energy Price /
+ 102      1             37.9
+ 103      2             37.1
+ 104      3             35.9
+ 105      4             34.9
+ 106      5             32.3
+ 107      6             31.5
+ 108      7             27.8
+ 109      8             47.8
+ 110      9             64.4
+ 111      10            69.7
+ 112      11            71.9
+ 113      12            75.7
+ 114      13            81
+ 115      14            87.9
+ 116      15            85.2
+ 117      16            68.2
+ 118      17            63.7
+ 119      18            52.4
+ 120      19            48.9
+ 121      20            62.6
+ 122      21            78.5
+ 123      22            81.9
+ 124      23            70.5
+ 125      24            70
+ 126    /
+ 127  ;
+ 128   
+ 129   
+ 130  * Initial conditions
+ 131  p.fx(i,t)$(ord(t)=1) = P_ini(i) ;
+ 132  u.fx(i,t)$(ord(t)=1) = u_ini(i) ;
+ 133   
+ 134  y.fx(i,t)$(ord(t)=1 and T_ini(i)=1)  = 1 ;
+ 135  z.fx(i,t)$(ord(t)=1 and T_ini(i)=-1) = 1 ;
+ 136   
+ 137  Display p.l ;
+ 138  Display u.l ;
+ 139  Display y.l ;
+ 140  Display z.l ;
+ 141   
+ 142  Parameters
+ 143      Tmax1
+ 144      F(i)
+ 145      L(i)
+ 146  ;
+ 147   
+ 148  Scalar
+ 149      Tmax 'number of hours of the planning period' /24/
+ 150  ;
+ 151   
+ 152   
+ 153   
+ 154  L(i) = min( Tmax , (UT(i)-T_ini(i))*u_ini(i) ) ;
+ 155  F(i) = min( Tmax , (DT(i)+T_ini(i))*(1-u_ini(i)) ) ;
+ 156   
+ 157  Display L ;
+ 158  Display F ;
+ 159   
+ 160  u.fx(i,t)$( (ord(t)<= L(i)) and  ord(t)>1  and L(i)>0 and T_ini(i)>0 ) = 1 ;
+ 161  u.fx(i,t)$( (ord(t)<= F(i)) and  ord(t)>1  and F(i)>0 and T_ini(i)<0 ) = 0 ;
+ 162   
+ 163  Scalar
+ 164   
+ 165     ProgTime       'number of hours of the planning period' /24/
+ 166  ;
+ 167   
+ 168   
+ 169   
+ 170  **Objective Function to be Maximized
+ 171  Equation Total_Profit Total profit over all units and time periods ;
+ 172           Total_Profit.. Profit =e= Sum((i,t)$(ord(t)>1),lamda_t(t) * p(i,t) - (NLC(i)*u(i,t) + b(i)*p(i,t) + SUC(i)*y(i,t) + SDC(i)*z(i,t))  ) ;
+ 173   
+ 174   
+ 175  *Constraints
+ 176   
+ 177  Equation Minimum_Operating_Time Minimum Operating Time (UTi h) of unit 'i' costraint ;
+ 178           Minimum_Operating_Time(i,t)$(ord(t)>1) .. Sum(it $ ((ord(it) >= ord(t)- UT(i)+1) and (ord(it)<=ord(t))),y(i,it)) =l= u(i,t) ;
+ 179   
+ 180  Equation Minimum_Holding_Time Minimum Holding Time (DTi h) of unit 'i'constraint ;
+ 181           Minimum_Holding_Time(i,t)$(ord(t)>1) .. Sum( it $ ((ord(it) >= ord(t)- DT(i)+1) and (ord(it)<=ord(t))), z(i,it) ) =l= 1- u(i,t) ;
+ 182   
+ 183  Equation Transition_Online_Offline Transition of unit 'i' from Online in Off-line mode and vice versa constraint ;
+ 184           Transition_Online_Offline(i,t)$(ord(t)>1) .. y(i,t) - z(i,t) =e= u(i,t) - u(i,t-1) ;
+ 185   
+ 186  Equation State_Initialization_Desynchronization  Initialization and Desynchronization State at a specific time 't' constraint ;
+ 187           State_Initialization_Desynchronization(i,t)$(ord(t)>1) .. y(i,t) + z(i,t) =l= 1 ;
+ 188   
+ 189   
+ 190  *Maximum and minimum output power constraints
+ 191   
+ 192  Equation Minimum_Power_Online Minimum Power of unit 'i'(Online) at a specific time 't' constraint ;
+ 193           Minimum_Power_Online(i,t)$(ord(t)>1).. p(i,t) =g= Pmin(i) * u(i,t) ;
+ 194   
+ 195  Equation Maximum_Power_RD_Desynchronization ;
+ 196           Maximum_Power_RD_Desynchronization(i,t)$(ord(t)>1).. p(i,t) =l= Pmax(i) * (u(i,t) - z(i,t+1)) + RD(i) * z(i,t+1) ;
+ 197   
+ 198  Equation Power_Increase_RU ;
+ 199           Power_Increase_RU(i,t)$(ord(t)>1).. p(i,t) =l= p(i,t-1) + RU(i) ;
+ 200   
+ 201  Equation Power_Decrease_RD ;
+ 202           Power_Decrease_RD(i,t)$(ord(t)>1).. p(i,t-1) =l= p(i,t) + RD(i) ;
+ 203   
+ 204   
+ 205  * Energy limitation of hydroelectric units
+ 206   
+ 207  Equation Energy_Minimum_Limitation_Hydroelectric(j) Minimum Energy limitation of hydroelectric units costraint ;
+ 208           Energy_Minimum_Limitation_Hydroelectric(j).. Emin(j) =l= Sum(t$(ord(t)>1),p(j,t)) ;
+ 209   
+ 210  Equation Energy_Maximum_Limitation_Hydroelectric(j) Maximum Energy limitation of hydroelectric units costraint ;
+ 211           Energy_Maximum_Limitation_Hydroelectric(j).. Sum(t$(ord(t)>1),p(j,t)) =l= Emax(j) ;
+ 212   
+ 213   
+ 214   
+ 215  Model Optimal_Unit_Scheduling /all/
+ 216   
+ 217   
+ 218  Option MIQCP = Gurobi ;
+ 219   
+ 220   
+ 221  Solve Optimal_Unit_Scheduling maximizing Profit using MIQCP ;
+ 222   
+ 223   
+ 224  Display "Unit Power Output", p.l ;
+ 225  Display "Unit Status", u.l ;
+ 226  Display "Unit Commitment", y.l ;
+ 227  Display "Unit Decommitment", z.l ;
+ 228  Display "Total Profit", Profit.l;
+
+
+COMPILATION TIME     =        0.000 SECONDS      3 MB  45.7.0 64fbf3ce WEX-WEI
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 2
+Optimal_Unit_Scheduling
+E x e c u t i o n
+
+
+----    137 VARIABLE p.L  Power output of unit 'i' at time 't' (MW)
+
+                   0
+
+Komotini     400.000
+Kremasta     150.000
+
+
+----    138 VARIABLE u.L  Binary variable equal to 1 if unit 'i' is running at time 't'
+
+                   0
+
+Komotini       1.000
+Kremasta       1.000
+
+
+----    139 VARIABLE y.L  Binary variable equal to 1 if unit 'i' is synchronized at the beginning of time 't'
+
+                      ( ALL       0.000 )
+
+
+----    140 VARIABLE z.L  Binary variable equal to 1 if unit 'i' is desynchronized at the beginning of time 't'
+
+                      ( ALL       0.000 )
+
+
+----    157 PARAMETER L  
+
+Kremasta -9.000
+
+
+----    158 PARAMETER F  
+
+AgiDim   -4.000,    Sfikia   -9.000,    Stratos -14.000
+
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 3
+Optimal_Unit_Scheduling
+Equation Listing    SOLVE Optimal_Unit_Scheduling Using MIQCP From line 221
+
+
+---- Total_Profit  =E=  Total profit over all units and time periods
+
+Total_Profit..  - 3.9*p(AgiDim,1) - 3.1*p(AgiDim,2) - 1.9*p(AgiDim,3) - 0.899999999999999*p(AgiDim,4) + 1.7*p(AgiDim,5) + 2.5*p(AgiDim,6) + 6.2*p(AgiDim,7) - 13.8*p(AgiDim,8) - 30.4*p(AgiDim,9) - 35.7*p(AgiDim,10) - 37.9*p(AgiDim,11) - 41.7*p(AgiDim,12) - 47*p(AgiDim,13) - 53.9*p(AgiDim,14) - 51.2*p(AgiDim,15) - 34.2*p(AgiDim,16) - 29.7*p(AgiDim,17) - 18.4*p(AgiDim,18) - 14.9*p(AgiDim,19) - 28.6*p(AgiDim,20) - 44.5*p(AgiDim,21) - 47.9*p(AgiDim,22) - 36.5*p(AgiDim,23) - 36*p(AgiDim,24) + 7.1*p(Komotini,1) + 7.9*p(Komotini,2) + 9.1*p(Komotini,3) + 10.1*p(Komotini,4) + 12.7*p(Komotini,5) + 13.5*p(Komotini,6) + 17.2*p(Komotini,7) - 2.8*p(Komotini,8) - 19.4*p(Komotini,9) - 24.7*p(Komotini,10) - 26.9*p(Komotini,11) - 30.7*p(Komotini,12) - 36*p(Komotini,13) - 42.9*p(Komotini,14) - 40.2*p(Komotini,15) - 23.2*p(Komotini,16) - 18.7*p(Komotini,17) - 7.4*p(Komotini,18) - 3.9*p(Komotini,19) - 17.6*p(Komotini,20) - 33.5*p(Komotini,21) - 36.9*p(Komotini,22) - 25.5*p(Komotini,23) - 25*p(Komotini,24) - 37.9*p(Kremasta,1) - 37.1*p(Kremasta,2) - 35.9*p(Kremasta,3) - 34.9*p(Kremasta,4) - 32.3*p(Kremasta,5) - 31.5*p(Kremasta,6) - 27.8*p(Kremasta,7) - 47.8*p(Kremasta,8) - 64.4*p(Kremasta,9) - 69.7*p(Kremasta,10) - 71.9*p(Kremasta,11) - 75.7*p(Kremasta,12) - 81*p(Kremasta,13) - 87.9*p(Kremasta,14) - 85.2*p(Kremasta,15) - 68.2*p(Kremasta,16) - 63.7*p(Kremasta,17) - 52.4*p(Kremasta,18) - 48.9*p(Kremasta,19) - 62.6*p(Kremasta,20) - 78.5*p(Kremasta,21) - 81.9*p(Kremasta,22) - 70.5*p(Kremasta,23) - 70*p(Kremasta,24) - 37.9*p(Sfikia,1) - 37.1*p(Sfikia,2) - 35.9*p(Sfikia,3) - 34.9*p(Sfikia,4) - 32.3*p(Sfikia,5) - 31.5*p(Sfikia,6) - 27.8*p(Sfikia,7) - 47.8*p(Sfikia,8) - 64.4*p(Sfikia,9) - 69.7*p(Sfikia,10) - 71.9*p(Sfikia,11) - 75.7*p(Sfikia,12) - 81*p(Sfikia,13) - 87.9*p(Sfikia,14) - 85.2*p(Sfikia,15) - 68.2*p(Sfikia,16) - 63.7*p(Sfikia,17) - 52.4*p(Sfikia,18) - 48.9*p(Sfikia,19) - 62.6*p(Sfikia,20) - 78.5*p(Sfikia,21) - 81.9*p(Sfikia,22) - 70.5*p(Sfikia,23) - 70*p(Sfikia,24) - 37.9*p(Stratos,1) - 37.1*p(Stratos,2) - 35.9*p(Stratos,3) - 34.9*p(Stratos,4) - 32.3*p(Stratos,5) - 31.5*p(Stratos,6) - 27.8*p(Stratos,7) - 47.8*p(Stratos,8) - 64.4*p(Stratos,9) - 69.7*p(Stratos,10) - 71.9*p(Stratos,11) - 75.7*p(Stratos,12) - 81*p(Stratos,13) - 87.9*p(Stratos,14) - 85.2*p(Stratos,15) - 68.2*p(Stratos,16) - 63.7*p(Stratos,17) - 52.4*p(Stratos,18) - 48.9*p(Stratos,19) - 62.6*p(Stratos,20) - 78.5*p(Stratos,21) - 81.9*p(Stratos,22) - 70.5*p(Stratos,23) - 70*p(Stratos,24) + 2500*u(AgiDim,1) + 2500*u(AgiDim,2) + 2500*u(AgiDim,3) + 2500*u(AgiDim,4) + 2500*u(AgiDim,5) + 2500*u(AgiDim,6) + 2500*u(AgiDim,7) + 2500*u(AgiDim,8) + 2500*u(AgiDim,9) + 2500*u(AgiDim,10) + 2500*u(AgiDim,11) + 2500*u(AgiDim,12) + 2500*u(AgiDim,13) + 2500*u(AgiDim,14) + 2500*u(AgiDim,15) + 2500*u(AgiDim,16) + 2500*u(AgiDim,17) + 2500*u(AgiDim,18) + 2500*u(AgiDim,19) + 2500*u(AgiDim,20) + 2500*u(AgiDim,21) + 2500*u(AgiDim,22) + 2500*u(AgiDim,23) + 2500*u(AgiDim,24) + 1600*u(Komotini,1) + 1600*u(Komotini,2) + 1600*u(Komotini,3) + 1600*u(Komotini,4) + 1600*u(Komotini,5) + 1600*u(Komotini,6) + 1600*u(Komotini,7) + 1600*u(Komotini,8) + 1600*u(Komotini,9) + 1600*u(Komotini,10) + 1600*u(Komotini,11) + 1600*u(Komotini,12) + 1600*u(Komotini,13) + 1600*u(Komotini,14) + 1600*u(Komotini,15) + 1600*u(Komotini,16) + 1600*u(Komotini,17) + 1600*u(Komotini,18) + 1600*u(Komotini,19) + 1600*u(Komotini,20) + 1600*u(Komotini,21) + 1600*u(Komotini,22) + 1600*u(Komotini,23) + 1600*u(Komotini,24) + 15000*y(AgiDim,1) + 15000*y(AgiDim,2) + 15000*y(AgiDim,3) + 15000*y(AgiDim,4) + 15000*y(AgiDim,5) + 15000*y(AgiDim,6) + 15000*y(AgiDim,7) + 15000*y(AgiDim,8) + 15000*y(AgiDim,9) + 15000*y(AgiDim,10) + 15000*y(AgiDim,11) + 15000*y(AgiDim,12) + 15000*y(AgiDim,13) + 15000*y(AgiDim,14) + 15000*y(AgiDim,15) + 15000*y(AgiDim,16) + 15000*y(AgiDim,17) + 15000*y(AgiDim,18) + 15000*y(AgiDim,19) + 15000*y(AgiDim,20) + 15000*y(AgiDim,21) + 15000*y(AgiDim,22) + 15000*y(AgiDim,23) + 15000*y(AgiDim,24) + 3700*y(Komotini,1) + 3700*y(Komotini,2) + 3700*y(Komotini,3) + 3700*y(Komotini,4) + 3700*y(Komotini,5) + 3700*y(Komotini,6) + 3700*y(Komotini,7) + 3700*y(Komotini,8) + 3700*y(Komotini,9) + 3700*y(Komotini,10) + 3700*y(Komotini,11) + 3700*y(Komotini,12) + 3700*y(Komotini,13) + 3700*y(Komotini,14) + 3700*y(Komotini,15) + 3700*y(Komotini,16) + 3700*y(Komotini,17) + 3700*y(Komotini,18) + 3700*y(Komotini,19) + 3700*y(Komotini,20) + 3700*y(Komotini,21) + 3700*y(Komotini,22) + 3700*y(Komotini,23) + 3700*y(Komotini,24) + 1200*z(AgiDim,1) + 1200*z(AgiDim,2) + 1200*z(AgiDim,3) + 1200*z(AgiDim,4) + 1200*z(AgiDim,5) + 1200*z(AgiDim,6) + 1200*z(AgiDim,7) + 1200*z(AgiDim,8) + 1200*z(AgiDim,9) + 1200*z(AgiDim,10) + 1200*z(AgiDim,11) + 1200*z(AgiDim,12) + 1200*z(AgiDim,13) + 1200*z(AgiDim,14) + 1200*z(AgiDim,15) + 1200*z(AgiDim,16) + 1200*z(AgiDim,17) + 1200*z(AgiDim,18) + 1200*z(AgiDim,19) + 1200*z(AgiDim,20) + 1200*z(AgiDim,21) + 1200*z(AgiDim,22) + 1200*z(AgiDim,23) + 1200*z(AgiDim,24) + 300*z(Komotini,1) + 300*z(Komotini,2) + 300*z(Komotini,3) + 300*z(Komotini,4) + 300*z(Komotini,5) + 300*z(Komotini,6) + 300*z(Komotini,7) + 300*z(Komotini,8) + 300*z(Komotini,9) + 300*z(Komotini,10) + 300*z(Komotini,11) + 300*z(Komotini,12) + 300*z(Komotini,13) + 300*z(Komotini,14) + 300*z(Komotini,15) + 300*z(Komotini,16) + 300*z(Komotini,17) + 300*z(Komotini,18) + 300*z(Komotini,19) + 300*z(Komotini,20) + 300*z(Komotini,21) + 300*z(Komotini,22) + 300*z(Komotini,23) + 300*z(Komotini,24) + Profit =E= 0 ; (LHS = 0)
+     
+
+---- Minimum_Operating_Time  =L=  Minimum Operating Time (UTi h) of unit 'i' costraint
+
+Minimum_Operating_Time(AgiDim,1)..  - u(AgiDim,1) + y(AgiDim,0) + y(AgiDim,1) =L= 0 ; (LHS = 0)
+     
+Minimum_Operating_Time(AgiDim,2)..  - u(AgiDim,2) + y(AgiDim,0) + y(AgiDim,1) + y(AgiDim,2) =L= 0 ; (LHS = 0)
+     
+Minimum_Operating_Time(AgiDim,3)..  - u(AgiDim,3) + y(AgiDim,0) + y(AgiDim,1) + y(AgiDim,2) + y(AgiDim,3) =L= 0 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Minimum_Holding_Time  =L=  Minimum Holding Time (DTi h) of unit 'i'constraint
+
+Minimum_Holding_Time(AgiDim,1)..  u(AgiDim,1) + z(AgiDim,0) + z(AgiDim,1) =L= 1 ; (LHS = 0)
+     
+Minimum_Holding_Time(AgiDim,2)..  u(AgiDim,2) + z(AgiDim,0) + z(AgiDim,1) + z(AgiDim,2) =L= 1 ; (LHS = 0)
+     
+Minimum_Holding_Time(AgiDim,3)..  u(AgiDim,3) + z(AgiDim,0) + z(AgiDim,1) + z(AgiDim,2) + z(AgiDim,3) =L= 1 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Transition_Online_Offline  =E=  Transition of unit 'i' from Online in Off-line mode and vice versa constraint
+
+Transition_Online_Offline(AgiDim,1)..  u(AgiDim,0) - u(AgiDim,1) + y(AgiDim,1) - z(AgiDim,1) =E= 0 ; (LHS = 0)
+     
+Transition_Online_Offline(AgiDim,2)..  u(AgiDim,1) - u(AgiDim,2) + y(AgiDim,2) - z(AgiDim,2) =E= 0 ; (LHS = 0)
+     
+Transition_Online_Offline(AgiDim,3)..  u(AgiDim,2) - u(AgiDim,3) + y(AgiDim,3) - z(AgiDim,3) =E= 0 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- State_Initialization_Desynchronization  =L=  Initialization and Desynchronization State at a specific time 't' constraint
+
+State_Initialization_Desynchronization(AgiDim,1)..  y(AgiDim,1) + z(AgiDim,1) =L= 1 ; (LHS = 0)
+     
+State_Initialization_Desynchronization(AgiDim,2)..  y(AgiDim,2) + z(AgiDim,2) =L= 1 ; (LHS = 0)
+     
+State_Initialization_Desynchronization(AgiDim,3)..  y(AgiDim,3) + z(AgiDim,3) =L= 1 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Minimum_Power_Online  =G=  Minimum Power of unit 'i'(Online) at a specific time 't' constraint
+
+Minimum_Power_Online(AgiDim,1)..  p(AgiDim,1) - 160*u(AgiDim,1) =G= 0 ; (LHS = 0)
+     
+Minimum_Power_Online(AgiDim,2)..  p(AgiDim,2) - 160*u(AgiDim,2) =G= 0 ; (LHS = 0)
+     
+Minimum_Power_Online(AgiDim,3)..  p(AgiDim,3) - 160*u(AgiDim,3) =G= 0 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Maximum_Power_RD_Desynchronization  =L=  
+
+Maximum_Power_RD_Desynchronization(AgiDim,1)..  p(AgiDim,1) - 280*u(AgiDim,1) + 110*z(AgiDim,2) =L= 0 ; (LHS = 0)
+     
+Maximum_Power_RD_Desynchronization(AgiDim,2)..  p(AgiDim,2) - 280*u(AgiDim,2) + 110*z(AgiDim,3) =L= 0 ; (LHS = 0)
+     
+Maximum_Power_RD_Desynchronization(AgiDim,3)..  p(AgiDim,3) - 280*u(AgiDim,3) + 110*z(AgiDim,4) =L= 0 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Power_Increase_RU  =L=  
+
+Power_Increase_RU(AgiDim,1)..  - p(AgiDim,0) + p(AgiDim,1) =L= 170 ; (LHS = 0)
+     
+Power_Increase_RU(AgiDim,2)..  - p(AgiDim,1) + p(AgiDim,2) =L= 170 ; (LHS = 0)
+     
+Power_Increase_RU(AgiDim,3)..  - p(AgiDim,2) + p(AgiDim,3) =L= 170 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Power_Decrease_RD  =L=  
+
+Power_Decrease_RD(AgiDim,1)..  p(AgiDim,0) - p(AgiDim,1) =L= 170 ; (LHS = 0)
+     
+Power_Decrease_RD(AgiDim,2)..  p(AgiDim,1) - p(AgiDim,2) =L= 170 ; (LHS = 0)
+     
+Power_Decrease_RD(AgiDim,3)..  p(AgiDim,2) - p(AgiDim,3) =L= 170 ; (LHS = 0)
+     
+REMAINING 117 ENTRIES SKIPPED
+
+
+---- Energy_Minimum_Limitation_Hydroelectric  =L=  Minimum Energy limitation of hydroelectric units costraint
+
+Energy_Minimum_Limitation_Hydroelectric(Kremasta)..  - p(Kremasta,1) - p(Kremasta,2) - p(Kremasta,3) - p(Kremasta,4) - p(Kremasta,5) - p(Kremasta,6) - p(Kremasta,7) - p(Kremasta,8) - p(Kremasta,9) - p(Kremasta,10) - p(Kremasta,11) - p(Kremasta,12) - p(Kremasta,13) - p(Kremasta,14) - p(Kremasta,15) - p(Kremasta,16) - p(Kremasta,17) - p(Kremasta,18) - p(Kremasta,19) - p(Kremasta,20) - p(Kremasta,21) - p(Kremasta,22) - p(Kremasta,23) - p(Kremasta,24) =L= -1000 ; (LHS = 0, INFES = 1000 ****)
+     
+Energy_Minimum_Limitation_Hydroelectric(Sfikia)..  - p(Sfikia,1) - p(Sfikia,2) - p(Sfikia,3) - p(Sfikia,4) - p(Sfikia,5) - p(Sfikia,6) - p(Sfikia,7) - p(Sfikia,8) - p(Sfikia,9) - p(Sfikia,10) - p(Sfikia,11) - p(Sfikia,12) - p(Sfikia,13) - p(Sfikia,14) - p(Sfikia,15) - p(Sfikia,16) - p(Sfikia,17) - p(Sfikia,18) - p(Sfikia,19) - p(Sfikia,20) - p(Sfikia,21) - p(Sfikia,22) - p(Sfikia,23) - p(Sfikia,24) =L= -800 ; (LHS = 0, INFES = 800 ****)
+     
+Energy_Minimum_Limitation_Hydroelectric(Stratos)..  - p(Stratos,1) - p(Stratos,2) - p(Stratos,3) - p(Stratos,4) - p(Stratos,5) - p(Stratos,6) - p(Stratos,7) - p(Stratos,8) - p(Stratos,9) - p(Stratos,10) - p(Stratos,11) - p(Stratos,12) - p(Stratos,13) - p(Stratos,14) - p(Stratos,15) - p(Stratos,16) - p(Stratos,17) - p(Stratos,18) - p(Stratos,19) - p(Stratos,20) - p(Stratos,21) - p(Stratos,22) - p(Stratos,23) - p(Stratos,24) =L= -700 ; (LHS = 0, INFES = 700 ****)
+     
+
+---- Energy_Maximum_Limitation_Hydroelectric  =L=  Maximum Energy limitation of hydroelectric units costraint
+
+Energy_Maximum_Limitation_Hydroelectric(Kremasta)..  p(Kremasta,1) + p(Kremasta,2) + p(Kremasta,3) + p(Kremasta,4) + p(Kremasta,5) + p(Kremasta,6) + p(Kremasta,7) + p(Kremasta,8) + p(Kremasta,9) + p(Kremasta,10) + p(Kremasta,11) + p(Kremasta,12) + p(Kremasta,13) + p(Kremasta,14) + p(Kremasta,15) + p(Kremasta,16) + p(Kremasta,17) + p(Kremasta,18) + p(Kremasta,19) + p(Kremasta,20) + p(Kremasta,21) + p(Kremasta,22) + p(Kremasta,23) + p(Kremasta,24) =L= 1700 ; (LHS = 0)
+     
+Energy_Maximum_Limitation_Hydroelectric(Sfikia)..  p(Sfikia,1) + p(Sfikia,2) + p(Sfikia,3) + p(Sfikia,4) + p(Sfikia,5) + p(Sfikia,6) + p(Sfikia,7) + p(Sfikia,8) + p(Sfikia,9) + p(Sfikia,10) + p(Sfikia,11) + p(Sfikia,12) + p(Sfikia,13) + p(Sfikia,14) + p(Sfikia,15) + p(Sfikia,16) + p(Sfikia,17) + p(Sfikia,18) + p(Sfikia,19) + p(Sfikia,20) + p(Sfikia,21) + p(Sfikia,22) + p(Sfikia,23) + p(Sfikia,24) =L= 1250 ; (LHS = 0)
+     
+Energy_Maximum_Limitation_Hydroelectric(Stratos)..  p(Stratos,1) + p(Stratos,2) + p(Stratos,3) + p(Stratos,4) + p(Stratos,5) + p(Stratos,6) + p(Stratos,7) + p(Stratos,8) + p(Stratos,9) + p(Stratos,10) + p(Stratos,11) + p(Stratos,12) + p(Stratos,13) + p(Stratos,14) + p(Stratos,15) + p(Stratos,16) + p(Stratos,17) + p(Stratos,18) + p(Stratos,19) + p(Stratos,20) + p(Stratos,21) + p(Stratos,22) + p(Stratos,23) + p(Stratos,24) =L= 1450 ; (LHS = 0)
+     
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 4
+Optimal_Unit_Scheduling
+Column Listing      SOLVE Optimal_Unit_Scheduling Using MIQCP From line 221
+
+
+---- p  Power output of unit 'i' at time 't' (MW)
+
+p(AgiDim,0)
+                (.LO, .L, .UP, .M = 0, 0, 0, 0)
+       -1       Power_Increase_RU(AgiDim,1)
+        1       Power_Decrease_RD(AgiDim,1)
+
+p(AgiDim,1)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -3.9     Total_Profit
+        1       Minimum_Power_Online(AgiDim,1)
+        1       Maximum_Power_RD_Desynchronization(AgiDim,1)
+        1       Power_Increase_RU(AgiDim,1)
+       -1       Power_Increase_RU(AgiDim,2)
+       -1       Power_Decrease_RD(AgiDim,1)
+        1       Power_Decrease_RD(AgiDim,2)
+
+p(AgiDim,2)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -3.1     Total_Profit
+        1       Minimum_Power_Online(AgiDim,2)
+        1       Maximum_Power_RD_Desynchronization(AgiDim,2)
+        1       Power_Increase_RU(AgiDim,2)
+       -1       Power_Increase_RU(AgiDim,3)
+       -1       Power_Decrease_RD(AgiDim,2)
+        1       Power_Decrease_RD(AgiDim,3)
+
+REMAINING 122 ENTRIES SKIPPED
+
+---- u  Binary variable equal to 1 if unit 'i' is running at time 't'
+
+u(AgiDim,0)
+                (.LO, .L, .UP, .M = 0, 0, 0, 0)
+        1       Transition_Online_Offline(AgiDim,1)
+
+u(AgiDim,1)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+     2500       Total_Profit
+       -1       Minimum_Operating_Time(AgiDim,1)
+        1       Minimum_Holding_Time(AgiDim,1)
+       -1       Transition_Online_Offline(AgiDim,1)
+        1       Transition_Online_Offline(AgiDim,2)
+     -160       Minimum_Power_Online(AgiDim,1)
+     -280       Maximum_Power_RD_Desynchronization(AgiDim,1)
+
+u(AgiDim,2)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+     2500       Total_Profit
+       -1       Minimum_Operating_Time(AgiDim,2)
+        1       Minimum_Holding_Time(AgiDim,2)
+       -1       Transition_Online_Offline(AgiDim,2)
+        1       Transition_Online_Offline(AgiDim,3)
+     -160       Minimum_Power_Online(AgiDim,2)
+     -280       Maximum_Power_RD_Desynchronization(AgiDim,2)
+
+REMAINING 122 ENTRIES SKIPPED
+
+---- y  Binary variable equal to 1 if unit 'i' is synchronized at the beginning of time 't'
+
+y(AgiDim,0)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+        1       Minimum_Operating_Time(AgiDim,1)
+        1       Minimum_Operating_Time(AgiDim,2)
+        1       Minimum_Operating_Time(AgiDim,3)
+        1       Minimum_Operating_Time(AgiDim,4)
+        1       Minimum_Operating_Time(AgiDim,5)
+        1       Minimum_Operating_Time(AgiDim,6)
+        1       Minimum_Operating_Time(AgiDim,7)
+        1       Minimum_Operating_Time(AgiDim,8)
+        1       Minimum_Operating_Time(AgiDim,9)
+        1       Minimum_Operating_Time(AgiDim,10)
+        1       Minimum_Operating_Time(AgiDim,11)
+
+y(AgiDim,1)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    15000       Total_Profit
+        1       Minimum_Operating_Time(AgiDim,1)
+        1       Minimum_Operating_Time(AgiDim,2)
+        1       Minimum_Operating_Time(AgiDim,3)
+        1       Minimum_Operating_Time(AgiDim,4)
+        1       Minimum_Operating_Time(AgiDim,5)
+        1       Minimum_Operating_Time(AgiDim,6)
+        1       Minimum_Operating_Time(AgiDim,7)
+        1       Minimum_Operating_Time(AgiDim,8)
+        1       Minimum_Operating_Time(AgiDim,9)
+        1       Minimum_Operating_Time(AgiDim,10)
+        1       Minimum_Operating_Time(AgiDim,11)
+        1       Minimum_Operating_Time(AgiDim,12)
+        1       Transition_Online_Offline(AgiDim,1)
+        1       State_Initialization_Desynchronization(AgiDim,1)
+
+y(AgiDim,2)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    15000       Total_Profit
+        1       Minimum_Operating_Time(AgiDim,2)
+        1       Minimum_Operating_Time(AgiDim,3)
+        1       Minimum_Operating_Time(AgiDim,4)
+        1       Minimum_Operating_Time(AgiDim,5)
+        1       Minimum_Operating_Time(AgiDim,6)
+        1       Minimum_Operating_Time(AgiDim,7)
+        1       Minimum_Operating_Time(AgiDim,8)
+        1       Minimum_Operating_Time(AgiDim,9)
+        1       Minimum_Operating_Time(AgiDim,10)
+        1       Minimum_Operating_Time(AgiDim,11)
+        1       Minimum_Operating_Time(AgiDim,12)
+        1       Minimum_Operating_Time(AgiDim,13)
+        1       Transition_Online_Offline(AgiDim,2)
+        1       State_Initialization_Desynchronization(AgiDim,2)
+
+REMAINING 119 ENTRIES SKIPPED
+
+---- z  Binary variable equal to 1 if unit 'i' is desynchronized at the beginning of time 't'
+
+z(AgiDim,0)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+        1       Minimum_Holding_Time(AgiDim,1)
+        1       Minimum_Holding_Time(AgiDim,2)
+        1       Minimum_Holding_Time(AgiDim,3)
+        1       Minimum_Holding_Time(AgiDim,4)
+        1       Minimum_Holding_Time(AgiDim,5)
+
+z(AgiDim,1)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+     1200       Total_Profit
+        1       Minimum_Holding_Time(AgiDim,1)
+        1       Minimum_Holding_Time(AgiDim,2)
+        1       Minimum_Holding_Time(AgiDim,3)
+        1       Minimum_Holding_Time(AgiDim,4)
+        1       Minimum_Holding_Time(AgiDim,5)
+        1       Minimum_Holding_Time(AgiDim,6)
+       -1       Transition_Online_Offline(AgiDim,1)
+        1       State_Initialization_Desynchronization(AgiDim,1)
+
+z(AgiDim,2)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+     1200       Total_Profit
+        1       Minimum_Holding_Time(AgiDim,2)
+        1       Minimum_Holding_Time(AgiDim,3)
+        1       Minimum_Holding_Time(AgiDim,4)
+        1       Minimum_Holding_Time(AgiDim,5)
+        1       Minimum_Holding_Time(AgiDim,6)
+        1       Minimum_Holding_Time(AgiDim,7)
+       -1       Transition_Online_Offline(AgiDim,2)
+        1       State_Initialization_Desynchronization(AgiDim,2)
+      110       Maximum_Power_RD_Desynchronization(AgiDim,1)
+
+REMAINING 119 ENTRIES SKIPPED
+
+---- Profit  
+
+Profit
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       Total_Profit
+
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 5
+Optimal_Unit_Scheduling
+Range Statistics    SOLVE Optimal_Unit_Scheduling Using MIQCP From line 221
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 1.000E+00, 1.700E+03] - Zero values observed as well
+Bound     [min, max] : [ 1.000E+00, 4.000E+02] - Zero values observed as well
+Matrix    [min, max] : [ 9.000E-01, 1.500E+04]
+
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 6
+Optimal_Unit_Scheduling
+Model Statistics    SOLVE Optimal_Unit_Scheduling Using MIQCP From line 221
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS          11     SINGLE EQUATIONS          967
+BLOCKS OF VARIABLES           5     SINGLE VARIABLES          495
+NON ZERO ELEMENTS         2,978     NON LINEAR N-Z              0
+CODE LENGTH                   0     CONSTANT POOL              16     DISCRETE VARIABLES        369
+
+
+GENERATION TIME      =        0.265 SECONDS      4 MB  45.7.0 64fbf3ce WEX-WEI
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 7
+Optimal_Unit_Scheduling
+Solution Report     SOLVE Optimal_Unit_Scheduling Using MIQCP From line 221
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   Optimal_Unit_Scheduling   OBJECTIVE  Profit
+     TYPE    MIQCP                     DIRECTION  MAXIMIZE
+     SOLVER  GUROBI                    FROM LINE  221
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE           611686.0000
+
+ RESOURCE USAGE, LIMIT          0.406 10000000000.000
+ ITERATION COUNT, LIMIT         7    2147483647
+ EVALUATION ERRORS             NA             0
+*** This solver runs with a community license. No commercial use.
+Gurobi library version 10.0.3
+GAMS/Gurobi demo/community requires a Gurobi license from Gurobi Optimization.
+Space for names approximately 0.05 Mb
+MIP status(2): Model was solved to optimality (subject to tolerances).
+
+Fixed MIP status(2): Model was solved to optimality (subject to tolerances).
+
+Final Solve:        611686.000000    (3 iterations)
+Best possible:      611686.000000
+Absolute gap:            0.000000
+Relative gap:            0.000000
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU Total_Pro~          .              .              .             1.0000      
+
+  Total_Profit  Total profit over all units and time periods
+
+---- EQU Minimum_Operating_Time  Minimum Operating Time (UTi h) of unit 'i' costraint
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1         -INF             .              .              .          
+AgiDim  .2         -INF             .              .              .          
+AgiDim  .3         -INF             .              .              .          
+AgiDim  .4         -INF             .              .              .          
+AgiDim  .5         -INF             .              .              .          
+AgiDim  .6         -INF             .              .              .          
+AgiDim  .7         -INF             .              .              .          
+AgiDim  .8         -INF             .              .              .          
+AgiDim  .9         -INF             .              .              .          
+AgiDim  .10        -INF             .              .              .          
+AgiDim  .11        -INF             .              .              .          
+AgiDim  .12        -INF             .              .              .          
+AgiDim  .13        -INF             .              .              .          
+AgiDim  .14        -INF             .              .              .          
+AgiDim  .15        -INF             .              .              .          
+AgiDim  .16        -INF             .              .              .          
+AgiDim  .17        -INF             .              .              .          
+AgiDim  .18        -INF             .              .              .          
+AgiDim  .19        -INF             .              .              .          
+AgiDim  .20        -INF           -1.0000          .              .          
+AgiDim  .21        -INF           -1.0000          .              .          
+AgiDim  .22        -INF           -1.0000          .              .          
+AgiDim  .23        -INF           -1.0000          .              .          
+AgiDim  .24        -INF           -1.0000          .              .          
+Komotini.1         -INF           -1.0000          .              .          
+Komotini.2         -INF             .              .              .          
+Komotini.3         -INF             .              .              .          
+Komotini.4         -INF             .              .              .          
+Komotini.5         -INF             .              .              .          
+Komotini.6         -INF             .              .              .          
+Komotini.7         -INF             .              .              .          
+Komotini.8         -INF             .              .              .          
+Komotini.9         -INF             .              .              .          
+Komotini.10        -INF             .              .              .          
+Komotini.11        -INF             .              .              .          
+Komotini.12        -INF           -1.0000          .              .          
+Komotini.13        -INF           -1.0000          .              .          
+Komotini.14        -INF           -1.0000          .              .          
+Komotini.15        -INF           -1.0000          .              .          
+Komotini.16        -INF           -1.0000          .              .          
+Komotini.17        -INF           -1.0000          .              .          
+Komotini.18        -INF           -1.0000          .              .          
+Komotini.19        -INF           -1.0000          .              .          
+Komotini.20        -INF           -1.0000          .              .          
+Komotini.21        -INF           -1.0000          .              .          
+Komotini.22        -INF           -1.0000          .              .          
+Komotini.23        -INF           -1.0000          .              .          
+Komotini.24        -INF           -1.0000          .              .          
+Kremasta.1         -INF             .              .              .          
+Kremasta.2         -INF             .              .              .          
+Kremasta.3         -INF             .              .              .          
+Kremasta.4         -INF             .              .              .          
+Kremasta.5         -INF             .              .              .          
+Kremasta.6         -INF           -1.0000          .              .          
+Kremasta.7         -INF           -1.0000          .              .          
+Kremasta.8         -INF           -1.0000          .              .          
+Kremasta.9         -INF           -1.0000          .              .          
+Kremasta.10        -INF           -1.0000          .              .          
+Kremasta.11        -INF           -1.0000          .              .          
+Kremasta.12        -INF           -1.0000          .              .          
+Kremasta.13        -INF           -1.0000          .              .          
+Kremasta.14        -INF           -1.0000          .              .          
+Kremasta.15        -INF           -1.0000          .              .          
+Kremasta.16        -INF           -1.0000          .              .          
+Kremasta.17        -INF           -1.0000          .              .          
+Kremasta.18        -INF           -1.0000          .              .          
+Kremasta.19        -INF           -1.0000          .              .          
+Kremasta.20        -INF           -1.0000          .              .          
+Kremasta.21        -INF           -1.0000          .              .          
+Kremasta.22        -INF           -1.0000          .              .          
+Kremasta.23        -INF           -1.0000          .              .          
+Kremasta.24        -INF           -1.0000          .              .          
+Sfikia  .1         -INF             .              .              .          
+Sfikia  .2         -INF             .              .              .          
+Sfikia  .3         -INF             .              .              .          
+Sfikia  .4         -INF             .              .              .          
+Sfikia  .5         -INF             .              .              .          
+Sfikia  .6         -INF           -1.0000          .              .          
+Sfikia  .7         -INF           -1.0000          .              .          
+Sfikia  .8         -INF           -1.0000          .              .          
+Sfikia  .9         -INF           -1.0000          .              .          
+Sfikia  .10        -INF           -1.0000          .              .          
+Sfikia  .11        -INF           -1.0000          .              .          
+Sfikia  .12        -INF           -1.0000          .              .          
+Sfikia  .13        -INF           -1.0000          .              .          
+Sfikia  .14        -INF           -1.0000          .              .          
+Sfikia  .15        -INF           -1.0000          .              .          
+Sfikia  .16        -INF           -1.0000          .              .          
+Sfikia  .17        -INF           -1.0000          .              .          
+Sfikia  .18        -INF           -1.0000          .              .          
+Sfikia  .19        -INF           -1.0000          .              .          
+Sfikia  .20        -INF           -1.0000          .              .          
+Sfikia  .21        -INF           -1.0000          .              .          
+Sfikia  .22        -INF           -1.0000          .              .          
+Sfikia  .23        -INF           -1.0000          .              .          
+Sfikia  .24        -INF           -1.0000          .              .          
+Stratos .1         -INF             .              .              .          
+Stratos .2         -INF             .              .              .          
+Stratos .3         -INF             .              .              .          
+Stratos .4         -INF             .              .              .          
+Stratos .5         -INF             .              .              .          
+Stratos .6         -INF           -1.0000          .              .          
+Stratos .7         -INF           -1.0000          .              .          
+Stratos .8         -INF           -1.0000          .              .          
+Stratos .9         -INF           -1.0000          .              .          
+Stratos .10        -INF           -1.0000          .              .          
+Stratos .11        -INF           -1.0000          .              .          
+Stratos .12        -INF           -1.0000          .              .          
+Stratos .13        -INF           -1.0000          .              .          
+Stratos .14        -INF           -1.0000          .              .          
+Stratos .15        -INF           -1.0000          .              .          
+Stratos .16        -INF           -1.0000          .              .          
+Stratos .17        -INF           -1.0000          .              .          
+Stratos .18        -INF           -1.0000          .              .          
+Stratos .19        -INF           -1.0000          .              .          
+Stratos .20        -INF           -1.0000          .              .          
+Stratos .21        -INF           -1.0000          .              .          
+Stratos .22        -INF           -1.0000          .              .          
+Stratos .23        -INF           -1.0000          .              .          
+Stratos .24        -INF           -1.0000          .              .          
+
+---- EQU Minimum_Holding_Time  Minimum Holding Time (DTi h) of unit 'i'constraint
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1         -INF             .             1.0000          .          
+AgiDim  .2         -INF             .             1.0000          .          
+AgiDim  .3         -INF             .             1.0000          .          
+AgiDim  .4         -INF             .             1.0000          .          
+AgiDim  .5         -INF             .             1.0000          .          
+AgiDim  .6         -INF             .             1.0000          .          
+AgiDim  .7         -INF             .             1.0000          .          
+AgiDim  .8         -INF            1.0000         1.0000          .          
+AgiDim  .9         -INF            1.0000         1.0000          .          
+AgiDim  .10        -INF            1.0000         1.0000          .          
+AgiDim  .11        -INF            1.0000         1.0000          .          
+AgiDim  .12        -INF            1.0000         1.0000          .          
+AgiDim  .13        -INF            1.0000         1.0000          .          
+AgiDim  .14        -INF            1.0000         1.0000          .          
+AgiDim  .15        -INF            1.0000         1.0000          .          
+AgiDim  .16        -INF            1.0000         1.0000          .          
+AgiDim  .17        -INF            1.0000         1.0000          .          
+AgiDim  .18        -INF            1.0000         1.0000          .          
+AgiDim  .19        -INF            1.0000         1.0000          .          
+AgiDim  .20        -INF            1.0000         1.0000          .          
+AgiDim  .21        -INF            1.0000         1.0000          .          
+AgiDim  .22        -INF            1.0000         1.0000          .          
+AgiDim  .23        -INF            1.0000         1.0000          .          
+AgiDim  .24        -INF            1.0000         1.0000          .          
+Komotini.1         -INF            1.0000         1.0000          .          
+Komotini.2         -INF            1.0000         1.0000          .          
+Komotini.3         -INF            1.0000         1.0000          .          
+Komotini.4         -INF            1.0000         1.0000          .          
+Komotini.5         -INF             .             1.0000          .          
+Komotini.6         -INF             .             1.0000          .          
+Komotini.7         -INF             .             1.0000          .          
+Komotini.8         -INF            1.0000         1.0000          .          
+Komotini.9         -INF            1.0000         1.0000          .          
+Komotini.10        -INF            1.0000         1.0000          .          
+Komotini.11        -INF            1.0000         1.0000          .          
+Komotini.12        -INF            1.0000         1.0000          .          
+Komotini.13        -INF            1.0000         1.0000          .          
+Komotini.14        -INF            1.0000         1.0000          .          
+Komotini.15        -INF            1.0000         1.0000          .          
+Komotini.16        -INF            1.0000         1.0000          .          
+Komotini.17        -INF            1.0000         1.0000          .          
+Komotini.18        -INF            1.0000         1.0000          .          
+Komotini.19        -INF            1.0000         1.0000          .          
+Komotini.20        -INF            1.0000         1.0000          .          
+Komotini.21        -INF            1.0000         1.0000          .          
+Komotini.22        -INF            1.0000         1.0000          .          
+Komotini.23        -INF            1.0000         1.0000          .          
+Komotini.24        -INF            1.0000         1.0000          .          
+Kremasta.1         -INF            1.0000         1.0000          .          
+Kremasta.2         -INF             .             1.0000          .          
+Kremasta.3         -INF             .             1.0000          .          
+Kremasta.4         -INF             .             1.0000          .          
+Kremasta.5         -INF            1.0000         1.0000          .          
+Kremasta.6         -INF            1.0000         1.0000          .          
+Kremasta.7         -INF            1.0000         1.0000          .          
+Kremasta.8         -INF            1.0000         1.0000          .          
+Kremasta.9         -INF            1.0000         1.0000          .          
+Kremasta.10        -INF            1.0000         1.0000          .          
+Kremasta.11        -INF            1.0000         1.0000          .          
+Kremasta.12        -INF            1.0000         1.0000          .          
+Kremasta.13        -INF            1.0000         1.0000          .          
+Kremasta.14        -INF            1.0000         1.0000          .          
+Kremasta.15        -INF            1.0000         1.0000          .          
+Kremasta.16        -INF            1.0000         1.0000          .          
+Kremasta.17        -INF            1.0000         1.0000          .          
+Kremasta.18        -INF            1.0000         1.0000          .          
+Kremasta.19        -INF            1.0000         1.0000          .          
+Kremasta.20        -INF            1.0000         1.0000          .          
+Kremasta.21        -INF            1.0000         1.0000          .          
+Kremasta.22        -INF            1.0000         1.0000          .          
+Kremasta.23        -INF            1.0000         1.0000          .          
+Kremasta.24        -INF            1.0000         1.0000          .          
+Sfikia  .1         -INF             .             1.0000          .          
+Sfikia  .2         -INF             .             1.0000          .          
+Sfikia  .3         -INF             .             1.0000          .          
+Sfikia  .4         -INF             .             1.0000          .          
+Sfikia  .5         -INF            1.0000         1.0000          .          
+Sfikia  .6         -INF            1.0000         1.0000          .          
+Sfikia  .7         -INF            1.0000         1.0000          .          
+Sfikia  .8         -INF            1.0000         1.0000          .          
+Sfikia  .9         -INF            1.0000         1.0000          .          
+Sfikia  .10        -INF            1.0000         1.0000          .          
+Sfikia  .11        -INF            1.0000         1.0000          .          
+Sfikia  .12        -INF            1.0000         1.0000          .          
+Sfikia  .13        -INF            1.0000         1.0000          .          
+Sfikia  .14        -INF            1.0000         1.0000          .          
+Sfikia  .15        -INF            1.0000         1.0000          .          
+Sfikia  .16        -INF            1.0000         1.0000          .          
+Sfikia  .17        -INF            1.0000         1.0000          .          
+Sfikia  .18        -INF            1.0000         1.0000          .          
+Sfikia  .19        -INF            1.0000         1.0000          .          
+Sfikia  .20        -INF            1.0000         1.0000          .          
+Sfikia  .21        -INF            1.0000         1.0000          .          
+Sfikia  .22        -INF            1.0000         1.0000          .          
+Sfikia  .23        -INF            1.0000         1.0000          .          
+Sfikia  .24        -INF            1.0000         1.0000          .          
+Stratos .1         -INF             .             1.0000          .          
+Stratos .2         -INF             .             1.0000          .          
+Stratos .3         -INF             .             1.0000          .          
+Stratos .4         -INF             .             1.0000          .          
+Stratos .5         -INF            1.0000         1.0000          .          
+Stratos .6         -INF            1.0000         1.0000          .          
+Stratos .7         -INF            1.0000         1.0000          .          
+Stratos .8         -INF            1.0000         1.0000          .          
+Stratos .9         -INF            1.0000         1.0000          .          
+Stratos .10        -INF            1.0000         1.0000          .          
+Stratos .11        -INF            1.0000         1.0000          .          
+Stratos .12        -INF            1.0000         1.0000          .          
+Stratos .13        -INF            1.0000         1.0000          .          
+Stratos .14        -INF            1.0000         1.0000          .          
+Stratos .15        -INF            1.0000         1.0000          .          
+Stratos .16        -INF            1.0000         1.0000          .          
+Stratos .17        -INF            1.0000         1.0000          .          
+Stratos .18        -INF            1.0000         1.0000          .          
+Stratos .19        -INF            1.0000         1.0000          .          
+Stratos .20        -INF            1.0000         1.0000          .          
+Stratos .21        -INF            1.0000         1.0000          .          
+Stratos .22        -INF            1.0000         1.0000          .          
+Stratos .23        -INF            1.0000         1.0000          .          
+Stratos .24        -INF            1.0000         1.0000          .          
+
+---- EQU Transition_Online_Offline  Transition of unit 'i' from Online in Off-line mode and vice versa constraint
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1           .              .              .              .          
+AgiDim  .2           .              .              .              .          
+AgiDim  .3           .              .              .              .          
+AgiDim  .4           .              .              .              .          
+AgiDim  .5           .              .              .              .          
+AgiDim  .6           .              .              .              .          
+AgiDim  .7           .              .              .              .          
+AgiDim  .8           .              .              .              .          
+AgiDim  .9           .              .              .              .          
+AgiDim  .10          .              .              .              .          
+AgiDim  .11          .              .              .              .          
+AgiDim  .12          .              .              .              .          
+AgiDim  .13          .              .              .              .          
+AgiDim  .14          .              .              .              .          
+AgiDim  .15          .              .              .              .          
+AgiDim  .16          .              .              .              .          
+AgiDim  .17          .              .              .              .          
+AgiDim  .18          .              .              .              .          
+AgiDim  .19          .              .              .              .          
+AgiDim  .20          .              .              .              .          
+AgiDim  .21          .              .              .              .          
+AgiDim  .22          .              .              .              .          
+AgiDim  .23          .              .              .              .          
+AgiDim  .24          .              .              .              .          
+Komotini.1           .              .              .              .          
+Komotini.2           .              .              .              .          
+Komotini.3           .              .              .              .          
+Komotini.4           .              .              .              .          
+Komotini.5           .              .              .              .          
+Komotini.6           .              .              .              .          
+Komotini.7           .              .              .              .          
+Komotini.8           .              .              .              .          
+Komotini.9           .              .              .              .          
+Komotini.10          .              .              .              .          
+Komotini.11          .              .              .              .          
+Komotini.12          .              .              .              .          
+Komotini.13          .              .              .              .          
+Komotini.14          .              .              .              .          
+Komotini.15          .              .              .              .          
+Komotini.16          .              .              .              .          
+Komotini.17          .              .              .              .          
+Komotini.18          .              .              .              .          
+Komotini.19          .              .              .              .          
+Komotini.20          .              .              .              .          
+Komotini.21          .              .              .              .          
+Komotini.22          .              .              .              .          
+Komotini.23          .              .              .              .          
+Komotini.24          .              .              .              .          
+Kremasta.1           .              .              .              .          
+Kremasta.2           .              .              .              .          
+Kremasta.3           .              .              .              .          
+Kremasta.4           .              .              .              .          
+Kremasta.5           .              .              .              .          
+Kremasta.6           .              .              .              .          
+Kremasta.7           .              .              .              .          
+Kremasta.8           .              .              .              .          
+Kremasta.9           .              .              .              .          
+Kremasta.10          .              .              .              .          
+Kremasta.11          .              .              .              .          
+Kremasta.12          .              .              .              .          
+Kremasta.13          .              .              .              .          
+Kremasta.14          .              .              .              .          
+Kremasta.15          .              .              .              .          
+Kremasta.16          .              .              .              .          
+Kremasta.17          .              .              .              .          
+Kremasta.18          .              .              .              .          
+Kremasta.19          .              .              .              .          
+Kremasta.20          .              .              .              .          
+Kremasta.21          .              .              .              .          
+Kremasta.22          .              .              .              .          
+Kremasta.23          .              .              .              .          
+Kremasta.24          .              .              .              .          
+Sfikia  .1           .              .              .              .          
+Sfikia  .2           .              .              .              .          
+Sfikia  .3           .              .              .              .          
+Sfikia  .4           .              .              .              .          
+Sfikia  .5           .              .              .              .          
+Sfikia  .6           .              .              .              .          
+Sfikia  .7           .              .              .              .          
+Sfikia  .8           .              .              .              .          
+Sfikia  .9           .              .              .              .          
+Sfikia  .10          .              .              .              .          
+Sfikia  .11          .              .              .              .          
+Sfikia  .12          .              .              .              .          
+Sfikia  .13          .              .              .              .          
+Sfikia  .14          .              .              .              .          
+Sfikia  .15          .              .              .              .          
+Sfikia  .16          .              .              .              .          
+Sfikia  .17          .              .              .              .          
+Sfikia  .18          .              .              .              .          
+Sfikia  .19          .              .              .              .          
+Sfikia  .20          .              .              .              .          
+Sfikia  .21          .              .              .              .          
+Sfikia  .22          .              .              .              .          
+Sfikia  .23          .              .              .              .          
+Sfikia  .24          .              .              .              .          
+Stratos .1           .              .              .              .          
+Stratos .2           .              .              .              .          
+Stratos .3           .              .              .              .          
+Stratos .4           .              .              .              .          
+Stratos .5           .              .              .              .          
+Stratos .6           .              .              .              .          
+Stratos .7           .              .              .              .          
+Stratos .8           .              .              .              .          
+Stratos .9           .              .              .              .          
+Stratos .10          .              .              .              .          
+Stratos .11          .              .              .              .          
+Stratos .12          .              .              .              .          
+Stratos .13          .              .              .              .          
+Stratos .14          .              .              .              .          
+Stratos .15          .              .              .              .          
+Stratos .16          .              .              .              .          
+Stratos .17          .              .              .              .          
+Stratos .18          .              .              .              .          
+Stratos .19          .              .              .              .          
+Stratos .20          .              .              .              .          
+Stratos .21          .              .              .              .          
+Stratos .22          .              .              .              .          
+Stratos .23          .              .              .              .          
+Stratos .24          .              .              .              .          
+
+---- EQU State_Initialization_Desynchronization  Initialization and Desynchronization State at a specific time 't' constraint
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1         -INF             .             1.0000          .          
+AgiDim  .2         -INF             .             1.0000          .          
+AgiDim  .3         -INF             .             1.0000          .          
+AgiDim  .4         -INF             .             1.0000          .          
+AgiDim  .5         -INF             .             1.0000          .          
+AgiDim  .6         -INF             .             1.0000          .          
+AgiDim  .7         -INF             .             1.0000          .          
+AgiDim  .8         -INF            1.0000         1.0000          .          
+AgiDim  .9         -INF             .             1.0000          .          
+AgiDim  .10        -INF             .             1.0000          .          
+AgiDim  .11        -INF             .             1.0000          .          
+AgiDim  .12        -INF             .             1.0000          .          
+AgiDim  .13        -INF             .             1.0000          .          
+AgiDim  .14        -INF             .             1.0000          .          
+AgiDim  .15        -INF             .             1.0000          .          
+AgiDim  .16        -INF             .             1.0000          .          
+AgiDim  .17        -INF             .             1.0000          .          
+AgiDim  .18        -INF             .             1.0000          .          
+AgiDim  .19        -INF             .             1.0000          .          
+AgiDim  .20        -INF             .             1.0000          .          
+AgiDim  .21        -INF             .             1.0000          .          
+AgiDim  .22        -INF             .             1.0000          .          
+AgiDim  .23        -INF             .             1.0000          .          
+AgiDim  .24        -INF             .             1.0000          .          
+Komotini.1         -INF             .             1.0000          .          
+Komotini.2         -INF            1.0000         1.0000          .          
+Komotini.3         -INF             .             1.0000          .          
+Komotini.4         -INF             .             1.0000          .          
+Komotini.5         -INF             .             1.0000          .          
+Komotini.6         -INF             .             1.0000          .          
+Komotini.7         -INF             .             1.0000          .          
+Komotini.8         -INF            1.0000         1.0000          .          
+Komotini.9         -INF             .             1.0000          .          
+Komotini.10        -INF             .             1.0000          .          
+Komotini.11        -INF             .             1.0000          .          
+Komotini.12        -INF             .             1.0000          .          
+Komotini.13        -INF             .             1.0000          .          
+Komotini.14        -INF             .             1.0000          .          
+Komotini.15        -INF             .             1.0000          .          
+Komotini.16        -INF             .             1.0000          .          
+Komotini.17        -INF             .             1.0000          .          
+Komotini.18        -INF             .             1.0000          .          
+Komotini.19        -INF             .             1.0000          .          
+Komotini.20        -INF             .             1.0000          .          
+Komotini.21        -INF             .             1.0000          .          
+Komotini.22        -INF             .             1.0000          .          
+Komotini.23        -INF             .             1.0000          .          
+Komotini.24        -INF             .             1.0000          .          
+Kremasta.1         -INF            1.0000         1.0000          .          
+Kremasta.2         -INF             .             1.0000          .          
+Kremasta.3         -INF             .             1.0000          .          
+Kremasta.4         -INF             .             1.0000          .          
+Kremasta.5         -INF            1.0000         1.0000          .          
+Kremasta.6         -INF             .             1.0000          .          
+Kremasta.7         -INF             .             1.0000          .          
+Kremasta.8         -INF             .             1.0000          .          
+Kremasta.9         -INF             .             1.0000          .          
+Kremasta.10        -INF             .             1.0000          .          
+Kremasta.11        -INF             .             1.0000          .          
+Kremasta.12        -INF             .             1.0000          .          
+Kremasta.13        -INF             .             1.0000          .          
+Kremasta.14        -INF             .             1.0000          .          
+Kremasta.15        -INF             .             1.0000          .          
+Kremasta.16        -INF             .             1.0000          .          
+Kremasta.17        -INF             .             1.0000          .          
+Kremasta.18        -INF             .             1.0000          .          
+Kremasta.19        -INF             .             1.0000          .          
+Kremasta.20        -INF             .             1.0000          .          
+Kremasta.21        -INF             .             1.0000          .          
+Kremasta.22        -INF             .             1.0000          .          
+Kremasta.23        -INF             .             1.0000          .          
+Kremasta.24        -INF             .             1.0000          .          
+Sfikia  .1         -INF             .             1.0000          .          
+Sfikia  .2         -INF             .             1.0000          .          
+Sfikia  .3         -INF             .             1.0000          .          
+Sfikia  .4         -INF             .             1.0000          .          
+Sfikia  .5         -INF            1.0000         1.0000          .          
+Sfikia  .6         -INF             .             1.0000          .          
+Sfikia  .7         -INF             .             1.0000          .          
+Sfikia  .8         -INF             .             1.0000          .          
+Sfikia  .9         -INF             .             1.0000          .          
+Sfikia  .10        -INF             .             1.0000          .          
+Sfikia  .11        -INF             .             1.0000          .          
+Sfikia  .12        -INF             .             1.0000          .          
+Sfikia  .13        -INF             .             1.0000          .          
+Sfikia  .14        -INF             .             1.0000          .          
+Sfikia  .15        -INF             .             1.0000          .          
+Sfikia  .16        -INF             .             1.0000          .          
+Sfikia  .17        -INF             .             1.0000          .          
+Sfikia  .18        -INF             .             1.0000          .          
+Sfikia  .19        -INF             .             1.0000          .          
+Sfikia  .20        -INF             .             1.0000          .          
+Sfikia  .21        -INF             .             1.0000          .          
+Sfikia  .22        -INF             .             1.0000          .          
+Sfikia  .23        -INF             .             1.0000          .          
+Sfikia  .24        -INF             .             1.0000          .          
+Stratos .1         -INF             .             1.0000          .          
+Stratos .2         -INF             .             1.0000          .          
+Stratos .3         -INF             .             1.0000          .          
+Stratos .4         -INF             .             1.0000          .          
+Stratos .5         -INF            1.0000         1.0000          .          
+Stratos .6         -INF             .             1.0000          .          
+Stratos .7         -INF             .             1.0000          .          
+Stratos .8         -INF             .             1.0000          .          
+Stratos .9         -INF             .             1.0000          .          
+Stratos .10        -INF             .             1.0000          .          
+Stratos .11        -INF             .             1.0000          .          
+Stratos .12        -INF             .             1.0000          .          
+Stratos .13        -INF             .             1.0000          .          
+Stratos .14        -INF             .             1.0000          .          
+Stratos .15        -INF             .             1.0000          .          
+Stratos .16        -INF             .             1.0000          .          
+Stratos .17        -INF             .             1.0000          .          
+Stratos .18        -INF             .             1.0000          .          
+Stratos .19        -INF             .             1.0000          .          
+Stratos .20        -INF             .             1.0000          .          
+Stratos .21        -INF             .             1.0000          .          
+Stratos .22        -INF             .             1.0000          .          
+Stratos .23        -INF             .             1.0000          .          
+Stratos .24        -INF             .             1.0000          .          
+
+---- EQU Minimum_Power_Online  Minimum Power of unit 'i'(Online) at a specific time 't' constraint
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1           .              .            +INF             .          
+AgiDim  .2           .              .            +INF             .          
+AgiDim  .3           .              .            +INF             .          
+AgiDim  .4           .              .            +INF             .          
+AgiDim  .5           .              .            +INF             .          
+AgiDim  .6           .              .            +INF             .          
+AgiDim  .7           .              .            +INF             .          
+AgiDim  .8           .            10.0000        +INF             .          
+AgiDim  .9           .           120.0000        +INF             .          
+AgiDim  .10          .           120.0000        +INF             .          
+AgiDim  .11          .           120.0000        +INF             .          
+AgiDim  .12          .           120.0000        +INF             .          
+AgiDim  .13          .           120.0000        +INF             .          
+AgiDim  .14          .           120.0000        +INF             .          
+AgiDim  .15          .           120.0000        +INF             .          
+AgiDim  .16          .           120.0000        +INF             .          
+AgiDim  .17          .           120.0000        +INF             .          
+AgiDim  .18          .           120.0000        +INF             .          
+AgiDim  .19          .           120.0000        +INF             .          
+AgiDim  .20          .           120.0000        +INF             .          
+AgiDim  .21          .           120.0000        +INF             .          
+AgiDim  .22          .           120.0000        +INF             .          
+AgiDim  .23          .           120.0000        +INF             .          
+AgiDim  .24          .           120.0000        +INF             .          
+Komotini.1           .              .            +INF           -7.1000      
+Komotini.2           .              .            +INF             .          
+Komotini.3           .              .            +INF             .          
+Komotini.4           .              .            +INF             .          
+Komotini.5           .              .            +INF             .          
+Komotini.6           .              .            +INF             .          
+Komotini.7           .              .            +INF             .          
+Komotini.8           .           180.0000        +INF             .          
+Komotini.9           .           240.0000        +INF             .          
+Komotini.10          .           240.0000        +INF             .          
+Komotini.11          .           240.0000        +INF             .          
+Komotini.12          .           240.0000        +INF             .          
+Komotini.13          .           240.0000        +INF             .          
+Komotini.14          .           240.0000        +INF             .          
+Komotini.15          .           240.0000        +INF             .          
+Komotini.16          .           240.0000        +INF             .          
+Komotini.17          .           240.0000        +INF             .          
+Komotini.18          .           240.0000        +INF             .          
+Komotini.19          .           240.0000        +INF             .          
+Komotini.20          .           240.0000        +INF             .          
+Komotini.21          .           240.0000        +INF             .          
+Komotini.22          .           240.0000        +INF             .          
+Komotini.23          .           240.0000        +INF             .          
+Komotini.24          .           240.0000        +INF             .          
+Kremasta.1           .              .            +INF             .          
+Kremasta.2           .              .            +INF             .          
+Kremasta.3           .              .            +INF             .          
+Kremasta.4           .              .            +INF             .          
+Kremasta.5           .              .            +INF             .          
+Kremasta.6           .              .            +INF             .          
+Kremasta.7           .              .            +INF             .          
+Kremasta.8           .              .            +INF             .          
+Kremasta.9           .              .            +INF             .          
+Kremasta.10          .              .            +INF             .          
+Kremasta.11          .              .            +INF             .          
+Kremasta.12          .           200.0000        +INF             .          
+Kremasta.13          .           300.0000        +INF             .          
+Kremasta.14          .           300.0000        +INF             .          
+Kremasta.15          .           300.0000        +INF             .          
+Kremasta.16          .              .            +INF             .          
+Kremasta.17          .              .            +INF             .          
+Kremasta.18          .              .            +INF             .          
+Kremasta.19          .              .            +INF             .          
+Kremasta.20          .              .            +INF             .          
+Kremasta.21          .           300.0000        +INF             .          
+Kremasta.22          .           300.0000        +INF             .          
+Kremasta.23          .              .            +INF             .          
+Kremasta.24          .              .            +INF             .          
+Sfikia  .1           .              .            +INF             .          
+Sfikia  .2           .              .            +INF             .          
+Sfikia  .3           .              .            +INF             .          
+Sfikia  .4           .              .            +INF             .          
+Sfikia  .5           .              .            +INF             .          
+Sfikia  .6           .              .            +INF             .          
+Sfikia  .7           .              .            +INF             .          
+Sfikia  .8           .              .            +INF             .          
+Sfikia  .9           .              .            +INF             .          
+Sfikia  .10          .              .            +INF             .          
+Sfikia  .11          .              .            +INF             .          
+Sfikia  .12          .              .            +INF             .          
+Sfikia  .13          .           250.0000        +INF             .          
+Sfikia  .14          .           250.0000        +INF             .          
+Sfikia  .15          .           250.0000        +INF             .          
+Sfikia  .16          .              .            +INF             .          
+Sfikia  .17          .              .            +INF             .          
+Sfikia  .18          .              .            +INF             .          
+Sfikia  .19          .              .            +INF             .          
+Sfikia  .20          .              .            +INF             .          
+Sfikia  .21          .           250.0000        +INF             .          
+Sfikia  .22          .           250.0000        +INF             .          
+Sfikia  .23          .              .            +INF             .          
+Sfikia  .24          .              .            +INF             .          
+Stratos .1           .              .            +INF             .          
+Stratos .2           .              .            +INF             .          
+Stratos .3           .              .            +INF             .          
+Stratos .4           .              .            +INF             .          
+Stratos .5           .              .            +INF             .          
+Stratos .6           .              .            +INF             .          
+Stratos .7           .              .            +INF             .          
+Stratos .8           .              .            +INF             .          
+Stratos .9           .              .            +INF             .          
+Stratos .10          .              .            +INF             .          
+Stratos .11          .              .            +INF             .          
+Stratos .12          .           200.0000        +INF             .          
+Stratos .13          .           250.0000        +INF             .          
+Stratos .14          .           250.0000        +INF             .          
+Stratos .15          .           250.0000        +INF             .          
+Stratos .16          .              .            +INF             .          
+Stratos .17          .              .            +INF             .          
+Stratos .18          .              .            +INF             .          
+Stratos .19          .              .            +INF             .          
+Stratos .20          .              .            +INF             .          
+Stratos .21          .           250.0000        +INF             .          
+Stratos .22          .           250.0000        +INF             .          
+Stratos .23          .              .            +INF             .          
+Stratos .24          .              .            +INF             .          
+
+---- EQU Maximum_Power_RD_Desynchronization  
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1         -INF             .              .             3.9000      
+AgiDim  .2         -INF             .              .             3.1000      
+AgiDim  .3         -INF             .              .             1.9000      
+AgiDim  .4         -INF             .              .             0.9000      
+AgiDim  .5         -INF             .              .              .          
+AgiDim  .6         -INF             .              .              .          
+AgiDim  .7         -INF             .              .             7.6000      
+AgiDim  .8         -INF         -110.0000          .              .          
+AgiDim  .9         -INF             .              .            30.4000      
+AgiDim  .10        -INF             .              .            35.7000      
+AgiDim  .11        -INF             .              .            37.9000      
+AgiDim  .12        -INF             .              .            41.7000      
+AgiDim  .13        -INF             .              .            47.0000      
+AgiDim  .14        -INF             .              .            53.9000      
+AgiDim  .15        -INF             .              .            51.2000      
+AgiDim  .16        -INF             .              .            34.2000      
+AgiDim  .17        -INF             .              .            29.7000      
+AgiDim  .18        -INF             .              .            18.4000      
+AgiDim  .19        -INF             .              .            14.9000      
+AgiDim  .20        -INF             .              .            28.6000      
+AgiDim  .21        -INF             .              .            44.5000      
+AgiDim  .22        -INF             .              .            47.9000      
+AgiDim  .23        -INF             .              .            36.5000      
+AgiDim  .24        -INF             .              .            36.0000      
+Komotini.1         -INF         -180.0000          .              .          
+Komotini.2         -INF             .              .              .          
+Komotini.3         -INF             .              .              .          
+Komotini.4         -INF             .              .              .          
+Komotini.5         -INF             .              .              .          
+Komotini.6         -INF             .              .              .          
+Komotini.7         -INF             .              .              .          
+Komotini.8         -INF          -60.0000          .              .          
+Komotini.9         -INF             .              .            19.4000      
+Komotini.10        -INF             .              .            24.7000      
+Komotini.11        -INF             .              .            26.9000      
+Komotini.12        -INF             .              .            30.7000      
+Komotini.13        -INF             .              .            36.0000      
+Komotini.14        -INF             .              .            42.9000      
+Komotini.15        -INF             .              .            40.2000      
+Komotini.16        -INF             .              .            23.2000      
+Komotini.17        -INF             .              .            18.7000      
+Komotini.18        -INF             .              .             7.4000      
+Komotini.19        -INF             .              .             3.9000      
+Komotini.20        -INF             .              .            17.6000      
+Komotini.21        -INF             .              .            33.5000      
+Komotini.22        -INF             .              .            36.9000      
+Komotini.23        -INF             .              .            25.5000      
+Komotini.24        -INF             .              .            25.0000      
+Kremasta.1         -INF             .              .              .          
+Kremasta.2         -INF             .              .              .          
+Kremasta.3         -INF             .              .              .          
+Kremasta.4         -INF             .              .              .          
+Kremasta.5         -INF         -300.0000          .              .          
+Kremasta.6         -INF         -300.0000          .              .          
+Kremasta.7         -INF         -300.0000          .              .          
+Kremasta.8         -INF         -300.0000          .              .          
+Kremasta.9         -INF         -300.0000          .              .          
+Kremasta.10        -INF         -300.0000          .              .          
+Kremasta.11        -INF         -300.0000          .              .          
+Kremasta.12        -INF         -100.0000          .              .          
+Kremasta.13        -INF             .              .             5.3000      
+Kremasta.14        -INF             .              .            12.2000      
+Kremasta.15        -INF             .              .             9.5000      
+Kremasta.16        -INF         -300.0000          .              .          
+Kremasta.17        -INF         -300.0000          .              .          
+Kremasta.18        -INF         -300.0000          .              .          
+Kremasta.19        -INF         -300.0000          .              .          
+Kremasta.20        -INF         -300.0000          .              .          
+Kremasta.21        -INF             .              .             2.8000      
+Kremasta.22        -INF             .              .             6.2000      
+Kremasta.23        -INF         -300.0000          .              .          
+Kremasta.24        -INF         -300.0000          .              .          
+Sfikia  .1         -INF             .              .              .          
+Sfikia  .2         -INF             .              .              .          
+Sfikia  .3         -INF             .              .              .          
+Sfikia  .4         -INF             .              .              .          
+Sfikia  .5         -INF         -250.0000          .              .          
+Sfikia  .6         -INF         -250.0000          .              .          
+Sfikia  .7         -INF         -250.0000          .              .          
+Sfikia  .8         -INF         -250.0000          .              .          
+Sfikia  .9         -INF         -250.0000          .              .          
+Sfikia  .10        -INF         -250.0000          .              .          
+Sfikia  .11        -INF         -250.0000          .              .          
+Sfikia  .12        -INF         -250.0000          .              .          
+Sfikia  .13        -INF             .              .             2.5000      
+Sfikia  .14        -INF             .              .             9.4000      
+Sfikia  .15        -INF             .              .             6.7000      
+Sfikia  .16        -INF         -250.0000          .              .          
+Sfikia  .17        -INF         -250.0000          .              .          
+Sfikia  .18        -INF         -250.0000          .              .          
+Sfikia  .19        -INF         -250.0000          .              .          
+Sfikia  .20        -INF         -250.0000          .              .          
+Sfikia  .21        -INF             .              .              .          
+Sfikia  .22        -INF             .              .             3.4000      
+Sfikia  .23        -INF         -250.0000          .              .          
+Sfikia  .24        -INF         -250.0000          .              .          
+Stratos .1         -INF             .              .              .          
+Stratos .2         -INF             .              .              .          
+Stratos .3         -INF             .              .              .          
+Stratos .4         -INF             .              .              .          
+Stratos .5         -INF         -250.0000          .              .          
+Stratos .6         -INF         -250.0000          .              .          
+Stratos .7         -INF         -250.0000          .              .          
+Stratos .8         -INF         -250.0000          .              .          
+Stratos .9         -INF         -250.0000          .              .          
+Stratos .10        -INF         -250.0000          .              .          
+Stratos .11        -INF         -250.0000          .              .          
+Stratos .12        -INF          -50.0000          .              .          
+Stratos .13        -INF             .              .             5.3000      
+Stratos .14        -INF             .              .            12.2000      
+Stratos .15        -INF             .              .             9.5000      
+Stratos .16        -INF         -250.0000          .              .          
+Stratos .17        -INF         -250.0000          .              .          
+Stratos .18        -INF         -250.0000          .              .          
+Stratos .19        -INF         -250.0000          .              .          
+Stratos .20        -INF         -250.0000          .              .          
+Stratos .21        -INF             .              .             2.8000      
+Stratos .22        -INF             .              .             6.2000      
+Stratos .23        -INF         -250.0000          .              .          
+Stratos .24        -INF         -250.0000          .              .          
+
+---- EQU Power_Increase_RU  
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1         -INF             .           170.0000          .          
+AgiDim  .2         -INF             .           170.0000          .          
+AgiDim  .3         -INF             .           170.0000          .          
+AgiDim  .4         -INF             .           170.0000          .          
+AgiDim  .5         -INF             .           170.0000          .          
+AgiDim  .6         -INF             .           170.0000          .          
+AgiDim  .7         -INF             .           170.0000          .          
+AgiDim  .8         -INF          170.0000       170.0000        13.8000      
+AgiDim  .9         -INF          110.0000       170.0000          .          
+AgiDim  .10        -INF             .           170.0000          .          
+AgiDim  .11        -INF             .           170.0000          .          
+AgiDim  .12        -INF             .           170.0000          .          
+AgiDim  .13        -INF             .           170.0000          .          
+AgiDim  .14        -INF             .           170.0000          .          
+AgiDim  .15        -INF             .           170.0000          .          
+AgiDim  .16        -INF             .           170.0000          .          
+AgiDim  .17        -INF             .           170.0000          .          
+AgiDim  .18        -INF             .           170.0000          .          
+AgiDim  .19        -INF             .           170.0000          .          
+AgiDim  .20        -INF             .           170.0000          .          
+AgiDim  .21        -INF             .           170.0000          .          
+AgiDim  .22        -INF             .           170.0000          .          
+AgiDim  .23        -INF             .           170.0000          .          
+AgiDim  .24        -INF             .           170.0000          .          
+Komotini.1         -INF         -220.0000       360.0000          .          
+Komotini.2         -INF         -180.0000       360.0000          .          
+Komotini.3         -INF             .           360.0000          .          
+Komotini.4         -INF             .           360.0000          .          
+Komotini.5         -INF             .           360.0000          .          
+Komotini.6         -INF             .           360.0000          .          
+Komotini.7         -INF             .           360.0000          .          
+Komotini.8         -INF          360.0000       360.0000         2.8000      
+Komotini.9         -INF           60.0000       360.0000          .          
+Komotini.10        -INF             .           360.0000          .          
+Komotini.11        -INF             .           360.0000          .          
+Komotini.12        -INF             .           360.0000          .          
+Komotini.13        -INF             .           360.0000          .          
+Komotini.14        -INF             .           360.0000          .          
+Komotini.15        -INF             .           360.0000          .          
+Komotini.16        -INF             .           360.0000          .          
+Komotini.17        -INF             .           360.0000          .          
+Komotini.18        -INF             .           360.0000          .          
+Komotini.19        -INF             .           360.0000          .          
+Komotini.20        -INF             .           360.0000          .          
+Komotini.21        -INF             .           360.0000          .          
+Komotini.22        -INF             .           360.0000          .          
+Komotini.23        -INF             .           360.0000          .          
+Komotini.24        -INF             .           360.0000          .          
+Kremasta.1         -INF         -150.0000       300.0000          .          
+Kremasta.2         -INF             .           300.0000          .          
+Kremasta.3         -INF             .           300.0000          .          
+Kremasta.4         -INF             .           300.0000          .          
+Kremasta.5         -INF             .           300.0000          .          
+Kremasta.6         -INF             .           300.0000          .          
+Kremasta.7         -INF             .           300.0000          .          
+Kremasta.8         -INF             .           300.0000          .          
+Kremasta.9         -INF             .           300.0000          .          
+Kremasta.10        -INF             .           300.0000          .          
+Kremasta.11        -INF             .           300.0000          .          
+Kremasta.12        -INF          200.0000       300.0000          .          
+Kremasta.13        -INF          100.0000       300.0000          .          
+Kremasta.14        -INF             .           300.0000          .          
+Kremasta.15        -INF             .           300.0000          .          
+Kremasta.16        -INF         -300.0000       300.0000          .          
+Kremasta.17        -INF             .           300.0000          .          
+Kremasta.18        -INF             .           300.0000          .          
+Kremasta.19        -INF             .           300.0000          .          
+Kremasta.20        -INF             .           300.0000          .          
+Kremasta.21        -INF          300.0000       300.0000          .          
+Kremasta.22        -INF             .           300.0000          .          
+Kremasta.23        -INF         -300.0000       300.0000          .          
+Kremasta.24        -INF             .           300.0000          .          
+Sfikia  .1         -INF             .           250.0000          .          
+Sfikia  .2         -INF             .           250.0000          .          
+Sfikia  .3         -INF             .           250.0000          .          
+Sfikia  .4         -INF             .           250.0000          .          
+Sfikia  .5         -INF             .           250.0000          .          
+Sfikia  .6         -INF             .           250.0000          .          
+Sfikia  .7         -INF             .           250.0000          .          
+Sfikia  .8         -INF             .           250.0000          .          
+Sfikia  .9         -INF             .           250.0000          .          
+Sfikia  .10        -INF             .           250.0000          .          
+Sfikia  .11        -INF             .           250.0000          .          
+Sfikia  .12        -INF             .           250.0000          .          
+Sfikia  .13        -INF          250.0000       250.0000          .          
+Sfikia  .14        -INF             .           250.0000          .          
+Sfikia  .15        -INF             .           250.0000          .          
+Sfikia  .16        -INF         -250.0000       250.0000          .          
+Sfikia  .17        -INF             .           250.0000          .          
+Sfikia  .18        -INF             .           250.0000          .          
+Sfikia  .19        -INF             .           250.0000          .          
+Sfikia  .20        -INF             .           250.0000          .          
+Sfikia  .21        -INF          250.0000       250.0000          .          
+Sfikia  .22        -INF             .           250.0000          .          
+Sfikia  .23        -INF         -250.0000       250.0000          .          
+Sfikia  .24        -INF             .           250.0000          .          
+Stratos .1         -INF             .           250.0000          .          
+Stratos .2         -INF             .           250.0000          .          
+Stratos .3         -INF             .           250.0000          .          
+Stratos .4         -INF             .           250.0000          .          
+Stratos .5         -INF             .           250.0000          .          
+Stratos .6         -INF             .           250.0000          .          
+Stratos .7         -INF             .           250.0000          .          
+Stratos .8         -INF             .           250.0000          .          
+Stratos .9         -INF             .           250.0000          .          
+Stratos .10        -INF             .           250.0000          .          
+Stratos .11        -INF             .           250.0000          .          
+Stratos .12        -INF          200.0000       250.0000          .          
+Stratos .13        -INF           50.0000       250.0000          .          
+Stratos .14        -INF             .           250.0000          .          
+Stratos .15        -INF             .           250.0000          .          
+Stratos .16        -INF         -250.0000       250.0000          .          
+Stratos .17        -INF             .           250.0000          .          
+Stratos .18        -INF             .           250.0000          .          
+Stratos .19        -INF             .           250.0000          .          
+Stratos .20        -INF             .           250.0000          .          
+Stratos .21        -INF          250.0000       250.0000          .          
+Stratos .22        -INF             .           250.0000          .          
+Stratos .23        -INF         -250.0000       250.0000          .          
+Stratos .24        -INF             .           250.0000          .          
+
+---- EQU Power_Decrease_RD  
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .1         -INF             .           170.0000          .          
+AgiDim  .2         -INF             .           170.0000          .          
+AgiDim  .3         -INF             .           170.0000          .          
+AgiDim  .4         -INF             .           170.0000          .          
+AgiDim  .5         -INF             .           170.0000          .          
+AgiDim  .6         -INF             .           170.0000          .          
+AgiDim  .7         -INF             .           170.0000          .          
+AgiDim  .8         -INF         -170.0000       170.0000          .          
+AgiDim  .9         -INF         -110.0000       170.0000          .          
+AgiDim  .10        -INF             .           170.0000          .          
+AgiDim  .11        -INF             .           170.0000          .          
+AgiDim  .12        -INF             .           170.0000          .          
+AgiDim  .13        -INF             .           170.0000          .          
+AgiDim  .14        -INF             .           170.0000          .          
+AgiDim  .15        -INF             .           170.0000          .          
+AgiDim  .16        -INF             .           170.0000          .          
+AgiDim  .17        -INF             .           170.0000          .          
+AgiDim  .18        -INF             .           170.0000          .          
+AgiDim  .19        -INF             .           170.0000          .          
+AgiDim  .20        -INF             .           170.0000          .          
+AgiDim  .21        -INF             .           170.0000          .          
+AgiDim  .22        -INF             .           170.0000          .          
+AgiDim  .23        -INF             .           170.0000          .          
+AgiDim  .24        -INF             .           170.0000          .          
+Komotini.1         -INF          220.0000       360.0000          .          
+Komotini.2         -INF          180.0000       360.0000          .          
+Komotini.3         -INF             .           360.0000          .          
+Komotini.4         -INF             .           360.0000          .          
+Komotini.5         -INF             .           360.0000          .          
+Komotini.6         -INF             .           360.0000          .          
+Komotini.7         -INF             .           360.0000          .          
+Komotini.8         -INF         -360.0000       360.0000          .          
+Komotini.9         -INF          -60.0000       360.0000          .          
+Komotini.10        -INF             .           360.0000          .          
+Komotini.11        -INF             .           360.0000          .          
+Komotini.12        -INF             .           360.0000          .          
+Komotini.13        -INF             .           360.0000          .          
+Komotini.14        -INF             .           360.0000          .          
+Komotini.15        -INF             .           360.0000          .          
+Komotini.16        -INF             .           360.0000          .          
+Komotini.17        -INF             .           360.0000          .          
+Komotini.18        -INF             .           360.0000          .          
+Komotini.19        -INF             .           360.0000          .          
+Komotini.20        -INF             .           360.0000          .          
+Komotini.21        -INF             .           360.0000          .          
+Komotini.22        -INF             .           360.0000          .          
+Komotini.23        -INF             .           360.0000          .          
+Komotini.24        -INF             .           360.0000          .          
+Kremasta.1         -INF          150.0000       300.0000          .          
+Kremasta.2         -INF             .           300.0000          .          
+Kremasta.3         -INF             .           300.0000          .          
+Kremasta.4         -INF             .           300.0000          .          
+Kremasta.5         -INF             .           300.0000          .          
+Kremasta.6         -INF             .           300.0000          .          
+Kremasta.7         -INF             .           300.0000          .          
+Kremasta.8         -INF             .           300.0000          .          
+Kremasta.9         -INF             .           300.0000          .          
+Kremasta.10        -INF             .           300.0000          .          
+Kremasta.11        -INF             .           300.0000          .          
+Kremasta.12        -INF         -200.0000       300.0000          .          
+Kremasta.13        -INF         -100.0000       300.0000          .          
+Kremasta.14        -INF             .           300.0000          .          
+Kremasta.15        -INF             .           300.0000          .          
+Kremasta.16        -INF          300.0000       300.0000          .          
+Kremasta.17        -INF             .           300.0000          .          
+Kremasta.18        -INF             .           300.0000          .          
+Kremasta.19        -INF             .           300.0000          .          
+Kremasta.20        -INF             .           300.0000          .          
+Kremasta.21        -INF         -300.0000       300.0000          .          
+Kremasta.22        -INF             .           300.0000          .          
+Kremasta.23        -INF          300.0000       300.0000          .          
+Kremasta.24        -INF             .           300.0000          .          
+Sfikia  .1         -INF             .           250.0000          .          
+Sfikia  .2         -INF             .           250.0000          .          
+Sfikia  .3         -INF             .           250.0000          .          
+Sfikia  .4         -INF             .           250.0000          .          
+Sfikia  .5         -INF             .           250.0000          .          
+Sfikia  .6         -INF             .           250.0000          .          
+Sfikia  .7         -INF             .           250.0000          .          
+Sfikia  .8         -INF             .           250.0000          .          
+Sfikia  .9         -INF             .           250.0000          .          
+Sfikia  .10        -INF             .           250.0000          .          
+Sfikia  .11        -INF             .           250.0000          .          
+Sfikia  .12        -INF             .           250.0000          .          
+Sfikia  .13        -INF         -250.0000       250.0000          .          
+Sfikia  .14        -INF             .           250.0000          .          
+Sfikia  .15        -INF             .           250.0000          .          
+Sfikia  .16        -INF          250.0000       250.0000          .          
+Sfikia  .17        -INF             .           250.0000          .          
+Sfikia  .18        -INF             .           250.0000          .          
+Sfikia  .19        -INF             .           250.0000          .          
+Sfikia  .20        -INF             .           250.0000          .          
+Sfikia  .21        -INF         -250.0000       250.0000          .          
+Sfikia  .22        -INF             .           250.0000          .          
+Sfikia  .23        -INF          250.0000       250.0000          .          
+Sfikia  .24        -INF             .           250.0000          .          
+Stratos .1         -INF             .           250.0000          .          
+Stratos .2         -INF             .           250.0000          .          
+Stratos .3         -INF             .           250.0000          .          
+Stratos .4         -INF             .           250.0000          .          
+Stratos .5         -INF             .           250.0000          .          
+Stratos .6         -INF             .           250.0000          .          
+Stratos .7         -INF             .           250.0000          .          
+Stratos .8         -INF             .           250.0000          .          
+Stratos .9         -INF             .           250.0000          .          
+Stratos .10        -INF             .           250.0000          .          
+Stratos .11        -INF             .           250.0000          .          
+Stratos .12        -INF         -200.0000       250.0000          .          
+Stratos .13        -INF          -50.0000       250.0000          .          
+Stratos .14        -INF             .           250.0000          .          
+Stratos .15        -INF             .           250.0000          .          
+Stratos .16        -INF          250.0000       250.0000          .          
+Stratos .17        -INF             .           250.0000          .          
+Stratos .18        -INF             .           250.0000          .          
+Stratos .19        -INF             .           250.0000          .          
+Stratos .20        -INF             .           250.0000          .          
+Stratos .21        -INF         -250.0000       250.0000          .          
+Stratos .22        -INF             .           250.0000          .          
+Stratos .23        -INF          250.0000       250.0000          .          
+Stratos .24        -INF             .           250.0000          .          
+
+---- EQU Energy_Minimum_Limitation_Hydroelectric  Minimum Energy limitation of hydroelectric units costraint
+
+                LOWER          LEVEL          UPPER         MARGINAL
+
+Kremasta        -INF        -1700.0000     -1000.0000          .          
+Sfikia          -INF        -1250.0000      -800.0000          .          
+Stratos         -INF        -1450.0000      -700.0000          .          
+
+---- EQU Energy_Maximum_Limitation_Hydroelectric  Maximum Energy limitation of hydroelectric units costraint
+
+                LOWER          LEVEL          UPPER         MARGINAL
+
+Kremasta        -INF         1700.0000      1700.0000        75.7000      
+Sfikia          -INF         1250.0000      1250.0000        78.5000      
+Stratos         -INF         1450.0000      1450.0000        75.7000      
+
+---- VAR p  Power output of unit 'i' at time 't' (MW)
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .0           .              .              .             EPS         
+AgiDim  .1           .              .            +INF             .          
+AgiDim  .2           .              .            +INF             .          
+AgiDim  .3           .              .            +INF             .          
+AgiDim  .4           .              .            +INF             .          
+AgiDim  .5           .              .            +INF           -1.7000      
+AgiDim  .6           .              .            +INF           -2.5000      
+AgiDim  .7           .              .            +INF             .          
+AgiDim  .8           .           170.0000        +INF             .          
+AgiDim  .9           .           280.0000        +INF             .          
+AgiDim  .10          .           280.0000        +INF             .          
+AgiDim  .11          .           280.0000        +INF             .          
+AgiDim  .12          .           280.0000        +INF             .          
+AgiDim  .13          .           280.0000        +INF             .          
+AgiDim  .14          .           280.0000        +INF             .          
+AgiDim  .15          .           280.0000        +INF             .          
+AgiDim  .16          .           280.0000        +INF             .          
+AgiDim  .17          .           280.0000        +INF             .          
+AgiDim  .18          .           280.0000        +INF             .          
+AgiDim  .19          .           280.0000        +INF             .          
+AgiDim  .20          .           280.0000        +INF             .          
+AgiDim  .21          .           280.0000        +INF             .          
+AgiDim  .22          .           280.0000        +INF             .          
+AgiDim  .23          .           280.0000        +INF             .          
+AgiDim  .24          .           280.0000        +INF             .          
+Komotini.0        400.0000       400.0000       400.0000         EPS         
+Komotini.1           .           180.0000        +INF             .          
+Komotini.2           .              .            +INF           -7.9000      
+Komotini.3           .              .            +INF           -9.1000      
+Komotini.4           .              .            +INF          -10.1000      
+Komotini.5           .              .            +INF          -12.7000      
+Komotini.6           .              .            +INF          -13.5000      
+Komotini.7           .              .            +INF          -14.4000      
+Komotini.8           .           360.0000        +INF             .          
+Komotini.9           .           420.0000        +INF             .          
+Komotini.10          .           420.0000        +INF             .          
+Komotini.11          .           420.0000        +INF             .          
+Komotini.12          .           420.0000        +INF             .          
+Komotini.13          .           420.0000        +INF             .          
+Komotini.14          .           420.0000        +INF             .          
+Komotini.15          .           420.0000        +INF             .          
+Komotini.16          .           420.0000        +INF             .          
+Komotini.17          .           420.0000        +INF             .          
+Komotini.18          .           420.0000        +INF             .          
+Komotini.19          .           420.0000        +INF             .          
+Komotini.20          .           420.0000        +INF             .          
+Komotini.21          .           420.0000        +INF             .          
+Komotini.22          .           420.0000        +INF             .          
+Komotini.23          .           420.0000        +INF             .          
+Komotini.24          .           420.0000        +INF             .          
+Kremasta.0        150.0000       150.0000       150.0000         EPS         
+Kremasta.1           .              .            +INF          -37.8000      
+Kremasta.2           .              .            +INF          -38.6000      
+Kremasta.3           .              .            +INF          -39.8000      
+Kremasta.4           .              .            +INF          -40.8000      
+Kremasta.5           .              .            +INF          -43.4000      
+Kremasta.6           .              .            +INF          -44.2000      
+Kremasta.7           .              .            +INF          -47.9000      
+Kremasta.8           .              .            +INF          -27.9000      
+Kremasta.9           .              .            +INF          -11.3000      
+Kremasta.10          .              .            +INF           -6.0000      
+Kremasta.11          .              .            +INF           -3.8000      
+Kremasta.12          .           200.0000        +INF             .          
+Kremasta.13          .           300.0000        +INF             .          
+Kremasta.14          .           300.0000        +INF             .          
+Kremasta.15          .           300.0000        +INF             .          
+Kremasta.16          .              .            +INF           -7.5000      
+Kremasta.17          .              .            +INF          -12.0000      
+Kremasta.18          .              .            +INF          -23.3000      
+Kremasta.19          .              .            +INF          -26.8000      
+Kremasta.20          .              .            +INF          -13.1000      
+Kremasta.21          .           300.0000        +INF             .          
+Kremasta.22          .           300.0000        +INF             .          
+Kremasta.23          .              .            +INF           -5.2000      
+Kremasta.24          .              .            +INF           -5.7000      
+Sfikia  .0           .              .              .             EPS         
+Sfikia  .1           .              .            +INF          -40.6000      
+Sfikia  .2           .              .            +INF          -41.4000      
+Sfikia  .3           .              .            +INF          -42.6000      
+Sfikia  .4           .              .            +INF          -43.6000      
+Sfikia  .5           .              .            +INF          -46.2000      
+Sfikia  .6           .              .            +INF          -47.0000      
+Sfikia  .7           .              .            +INF          -50.7000      
+Sfikia  .8           .              .            +INF          -30.7000      
+Sfikia  .9           .              .            +INF          -14.1000      
+Sfikia  .10          .              .            +INF           -8.8000      
+Sfikia  .11          .              .            +INF           -6.6000      
+Sfikia  .12          .              .            +INF           -2.8000      
+Sfikia  .13          .           250.0000        +INF             .          
+Sfikia  .14          .           250.0000        +INF             .          
+Sfikia  .15          .           250.0000        +INF             .          
+Sfikia  .16          .              .            +INF          -10.3000      
+Sfikia  .17          .              .            +INF          -14.8000      
+Sfikia  .18          .              .            +INF          -26.1000      
+Sfikia  .19          .              .            +INF          -29.6000      
+Sfikia  .20          .              .            +INF          -15.9000      
+Sfikia  .21          .           250.0000        +INF             .          
+Sfikia  .22          .           250.0000        +INF             .          
+Sfikia  .23          .              .            +INF           -8.0000      
+Sfikia  .24          .              .            +INF           -8.5000      
+Stratos .0           .              .              .             EPS         
+Stratos .1           .              .            +INF          -37.8000      
+Stratos .2           .              .            +INF          -38.6000      
+Stratos .3           .              .            +INF          -39.8000      
+Stratos .4           .              .            +INF          -40.8000      
+Stratos .5           .              .            +INF          -43.4000      
+Stratos .6           .              .            +INF          -44.2000      
+Stratos .7           .              .            +INF          -47.9000      
+Stratos .8           .              .            +INF          -27.9000      
+Stratos .9           .              .            +INF          -11.3000      
+Stratos .10          .              .            +INF           -6.0000      
+Stratos .11          .              .            +INF           -3.8000      
+Stratos .12          .           200.0000        +INF             .          
+Stratos .13          .           250.0000        +INF             .          
+Stratos .14          .           250.0000        +INF             .          
+Stratos .15          .           250.0000        +INF             .          
+Stratos .16          .              .            +INF           -7.5000      
+Stratos .17          .              .            +INF          -12.0000      
+Stratos .18          .              .            +INF          -23.3000      
+Stratos .19          .              .            +INF          -26.8000      
+Stratos .20          .              .            +INF          -13.1000      
+Stratos .21          .           250.0000        +INF             .          
+Stratos .22          .           250.0000        +INF             .          
+Stratos .23          .              .            +INF           -5.2000      
+Stratos .24          .              .            +INF           -5.7000      
+
+---- VAR u  Binary variable equal to 1 if unit 'i' is running at time 't'
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .0           .              .              .             EPS         
+AgiDim  .1           .              .             1.0000     -1408.0000      
+AgiDim  .2           .              .             1.0000     -1632.0000      
+AgiDim  .3           .              .             1.0000     -1968.0000      
+AgiDim  .4           .              .             1.0000     -2248.0000      
+AgiDim  .5           .              .             1.0000     -2500.0000      
+AgiDim  .6           .              .             1.0000     -2500.0000      
+AgiDim  .7           .              .             1.0000      -372.0000      
+AgiDim  .8           .             1.0000         1.0000     -2500.0000      
+AgiDim  .9           .             1.0000         1.0000      6012.0000      
+AgiDim  .10          .             1.0000         1.0000      7496.0000      
+AgiDim  .11          .             1.0000         1.0000      8112.0000      
+AgiDim  .12          .             1.0000         1.0000      9176.0000      
+AgiDim  .13          .             1.0000         1.0000     10660.0000      
+AgiDim  .14          .             1.0000         1.0000     12592.0000      
+AgiDim  .15          .             1.0000         1.0000     11836.0000      
+AgiDim  .16          .             1.0000         1.0000      7076.0000      
+AgiDim  .17          .             1.0000         1.0000      5816.0000      
+AgiDim  .18          .             1.0000         1.0000      2652.0000      
+AgiDim  .19          .             1.0000         1.0000      1672.0000      
+AgiDim  .20          .             1.0000         1.0000      5508.0000      
+AgiDim  .21          .             1.0000         1.0000      9960.0000      
+AgiDim  .22          .             1.0000         1.0000     10912.0000      
+AgiDim  .23          .             1.0000         1.0000      7720.0000      
+AgiDim  .24          .             1.0000         1.0000      7580.0000      
+Komotini.0          1.0000         1.0000         1.0000         EPS         
+Komotini.1           .             1.0000         1.0000     -2878.0000      
+Komotini.2           .              .             1.0000     -1600.0000      
+Komotini.3           .              .             1.0000     -1600.0000      
+Komotini.4           .              .             1.0000     -1600.0000      
+Komotini.5           .              .             1.0000     -1600.0000      
+Komotini.6           .              .             1.0000     -1600.0000      
+Komotini.7           .              .             1.0000     -1600.0000      
+Komotini.8           .             1.0000         1.0000     -1600.0000      
+Komotini.9           .             1.0000         1.0000      6548.0000      
+Komotini.10          .             1.0000         1.0000      8774.0000      
+Komotini.11          .             1.0000         1.0000      9698.0000      
+Komotini.12          .             1.0000         1.0000     11294.0000      
+Komotini.13          .             1.0000         1.0000     13520.0000      
+Komotini.14          .             1.0000         1.0000     16418.0000      
+Komotini.15          .             1.0000         1.0000     15284.0000      
+Komotini.16          .             1.0000         1.0000      8144.0000      
+Komotini.17          .             1.0000         1.0000      6254.0000      
+Komotini.18          .             1.0000         1.0000      1508.0000      
+Komotini.19          .             1.0000         1.0000        38.0000      
+Komotini.20          .             1.0000         1.0000      5792.0000      
+Komotini.21          .             1.0000         1.0000     12470.0000      
+Komotini.22          .             1.0000         1.0000     13898.0000      
+Komotini.23          .             1.0000         1.0000      9110.0000      
+Komotini.24          .             1.0000         1.0000      8900.0000      
+Kremasta.0          1.0000         1.0000         1.0000         EPS         
+Kremasta.1           .              .             1.0000         EPS         
+Kremasta.2           .              .             1.0000         EPS         
+Kremasta.3           .              .             1.0000         EPS         
+Kremasta.4           .              .             1.0000         EPS         
+Kremasta.5           .             1.0000         1.0000         EPS         
+Kremasta.6           .             1.0000         1.0000         EPS         
+Kremasta.7           .             1.0000         1.0000         EPS         
+Kremasta.8           .             1.0000         1.0000         EPS         
+Kremasta.9           .             1.0000         1.0000         EPS         
+Kremasta.10          .             1.0000         1.0000         EPS         
+Kremasta.11          .             1.0000         1.0000         EPS         
+Kremasta.12          .             1.0000         1.0000         EPS         
+Kremasta.13          .             1.0000         1.0000      1590.0000      
+Kremasta.14          .             1.0000         1.0000      3660.0000      
+Kremasta.15          .             1.0000         1.0000      2850.0000      
+Kremasta.16          .             1.0000         1.0000         EPS         
+Kremasta.17          .             1.0000         1.0000         EPS         
+Kremasta.18          .             1.0000         1.0000         EPS         
+Kremasta.19          .             1.0000         1.0000         EPS         
+Kremasta.20          .             1.0000         1.0000         EPS         
+Kremasta.21          .             1.0000         1.0000       840.0000      
+Kremasta.22          .             1.0000         1.0000      1860.0000      
+Kremasta.23          .             1.0000         1.0000         EPS         
+Kremasta.24          .             1.0000         1.0000         EPS         
+Sfikia  .0           .              .              .             EPS         
+Sfikia  .1           .              .             1.0000         EPS         
+Sfikia  .2           .              .             1.0000         EPS         
+Sfikia  .3           .              .             1.0000         EPS         
+Sfikia  .4           .              .             1.0000         EPS         
+Sfikia  .5           .             1.0000         1.0000         EPS         
+Sfikia  .6           .             1.0000         1.0000         EPS         
+Sfikia  .7           .             1.0000         1.0000         EPS         
+Sfikia  .8           .             1.0000         1.0000         EPS         
+Sfikia  .9           .             1.0000         1.0000         EPS         
+Sfikia  .10          .             1.0000         1.0000         EPS         
+Sfikia  .11          .             1.0000         1.0000         EPS         
+Sfikia  .12          .             1.0000         1.0000         EPS         
+Sfikia  .13          .             1.0000         1.0000       625.0000      
+Sfikia  .14          .             1.0000         1.0000      2350.0000      
+Sfikia  .15          .             1.0000         1.0000      1675.0000      
+Sfikia  .16          .             1.0000         1.0000         EPS         
+Sfikia  .17          .             1.0000         1.0000         EPS         
+Sfikia  .18          .             1.0000         1.0000         EPS         
+Sfikia  .19          .             1.0000         1.0000         EPS         
+Sfikia  .20          .             1.0000         1.0000         EPS         
+Sfikia  .21          .             1.0000         1.0000         EPS         
+Sfikia  .22          .             1.0000         1.0000       850.0000      
+Sfikia  .23          .             1.0000         1.0000         EPS         
+Sfikia  .24          .             1.0000         1.0000         EPS         
+Stratos .0           .              .              .             EPS         
+Stratos .1           .              .             1.0000         EPS         
+Stratos .2           .              .             1.0000         EPS         
+Stratos .3           .              .             1.0000         EPS         
+Stratos .4           .              .             1.0000         EPS         
+Stratos .5           .             1.0000         1.0000         EPS         
+Stratos .6           .             1.0000         1.0000         EPS         
+Stratos .7           .             1.0000         1.0000         EPS         
+Stratos .8           .             1.0000         1.0000         EPS         
+Stratos .9           .             1.0000         1.0000         EPS         
+Stratos .10          .             1.0000         1.0000         EPS         
+Stratos .11          .             1.0000         1.0000         EPS         
+Stratos .12          .             1.0000         1.0000         EPS         
+Stratos .13          .             1.0000         1.0000      1325.0000      
+Stratos .14          .             1.0000         1.0000      3050.0000      
+Stratos .15          .             1.0000         1.0000      2375.0000      
+Stratos .16          .             1.0000         1.0000         EPS         
+Stratos .17          .             1.0000         1.0000         EPS         
+Stratos .18          .             1.0000         1.0000         EPS         
+Stratos .19          .             1.0000         1.0000         EPS         
+Stratos .20          .             1.0000         1.0000         EPS         
+Stratos .21          .             1.0000         1.0000       700.0000      
+Stratos .22          .             1.0000         1.0000      1550.0000      
+Stratos .23          .             1.0000         1.0000         EPS         
+Stratos .24          .             1.0000         1.0000         EPS         
+
+---- VAR y  Binary variable equal to 1 if unit 'i' is synchronized at the beginning of time 't'
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .0           .              .             1.0000         EPS         
+AgiDim  .1           .              .             1.0000    -15000.0000      
+AgiDim  .2           .              .             1.0000    -15000.0000      
+AgiDim  .3           .              .             1.0000    -15000.0000      
+AgiDim  .4           .              .             1.0000    -15000.0000      
+AgiDim  .5           .              .             1.0000    -15000.0000      
+AgiDim  .6           .              .             1.0000    -15000.0000      
+AgiDim  .7           .              .             1.0000    -15000.0000      
+AgiDim  .8           .             1.0000         1.0000    -15000.0000      
+AgiDim  .9           .              .             1.0000    -15000.0000      
+AgiDim  .10          .              .             1.0000    -15000.0000      
+AgiDim  .11          .              .             1.0000    -15000.0000      
+AgiDim  .12          .              .             1.0000    -15000.0000      
+AgiDim  .13          .              .             1.0000    -15000.0000      
+AgiDim  .14          .              .             1.0000    -15000.0000      
+AgiDim  .15          .              .             1.0000    -15000.0000      
+AgiDim  .16          .              .             1.0000    -15000.0000      
+AgiDim  .17          .              .             1.0000    -15000.0000      
+AgiDim  .18          .              .             1.0000    -15000.0000      
+AgiDim  .19          .              .             1.0000    -15000.0000      
+AgiDim  .20          .              .             1.0000    -15000.0000      
+AgiDim  .21          .              .             1.0000    -15000.0000      
+AgiDim  .22          .              .             1.0000    -15000.0000      
+AgiDim  .23          .              .             1.0000    -15000.0000      
+AgiDim  .24          .              .             1.0000    -15000.0000      
+Komotini.0           .              .             1.0000         EPS         
+Komotini.1           .              .             1.0000     -3700.0000      
+Komotini.2           .              .             1.0000     -3700.0000      
+Komotini.3           .              .             1.0000     -3700.0000      
+Komotini.4           .              .             1.0000     -3700.0000      
+Komotini.5           .              .             1.0000     -3700.0000      
+Komotini.6           .              .             1.0000     -3700.0000      
+Komotini.7           .              .             1.0000     -3700.0000      
+Komotini.8           .             1.0000         1.0000     -3700.0000      
+Komotini.9           .              .             1.0000     -3700.0000      
+Komotini.10          .              .             1.0000     -3700.0000      
+Komotini.11          .              .             1.0000     -3700.0000      
+Komotini.12          .              .             1.0000     -3700.0000      
+Komotini.13          .              .             1.0000     -3700.0000      
+Komotini.14          .              .             1.0000     -3700.0000      
+Komotini.15          .              .             1.0000     -3700.0000      
+Komotini.16          .              .             1.0000     -3700.0000      
+Komotini.17          .              .             1.0000     -3700.0000      
+Komotini.18          .              .             1.0000     -3700.0000      
+Komotini.19          .              .             1.0000     -3700.0000      
+Komotini.20          .              .             1.0000     -3700.0000      
+Komotini.21          .              .             1.0000     -3700.0000      
+Komotini.22          .              .             1.0000     -3700.0000      
+Komotini.23          .              .             1.0000     -3700.0000      
+Komotini.24          .              .             1.0000     -3700.0000      
+Kremasta.1           .              .             1.0000         EPS         
+Kremasta.2           .              .             1.0000         EPS         
+Kremasta.3           .              .             1.0000         EPS         
+Kremasta.4           .              .             1.0000         EPS         
+Kremasta.5           .             1.0000         1.0000         EPS         
+Kremasta.6           .              .             1.0000         EPS         
+Kremasta.7           .              .             1.0000         EPS         
+Kremasta.8           .              .             1.0000         EPS         
+Kremasta.9           .              .             1.0000         EPS         
+Kremasta.10          .              .             1.0000         EPS         
+Kremasta.11          .              .             1.0000         EPS         
+Kremasta.12          .              .             1.0000         EPS         
+Kremasta.13          .              .             1.0000         EPS         
+Kremasta.14          .              .             1.0000         EPS         
+Kremasta.15          .              .             1.0000         EPS         
+Kremasta.16          .              .             1.0000         EPS         
+Kremasta.17          .              .             1.0000         EPS         
+Kremasta.18          .              .             1.0000         EPS         
+Kremasta.19          .              .             1.0000         EPS         
+Kremasta.20          .              .             1.0000         EPS         
+Kremasta.21          .              .             1.0000         EPS         
+Kremasta.22          .              .             1.0000         EPS         
+Kremasta.23          .              .             1.0000         EPS         
+Kremasta.24          .              .             1.0000         EPS         
+Sfikia  .1           .              .             1.0000         EPS         
+Sfikia  .2           .              .             1.0000         EPS         
+Sfikia  .3           .              .             1.0000         EPS         
+Sfikia  .4           .              .             1.0000         EPS         
+Sfikia  .5           .             1.0000         1.0000         EPS         
+Sfikia  .6           .              .             1.0000         EPS         
+Sfikia  .7           .              .             1.0000         EPS         
+Sfikia  .8           .              .             1.0000         EPS         
+Sfikia  .9           .              .             1.0000         EPS         
+Sfikia  .10          .              .             1.0000         EPS         
+Sfikia  .11          .              .             1.0000         EPS         
+Sfikia  .12          .              .             1.0000         EPS         
+Sfikia  .13          .              .             1.0000         EPS         
+Sfikia  .14          .              .             1.0000         EPS         
+Sfikia  .15          .              .             1.0000         EPS         
+Sfikia  .16          .              .             1.0000         EPS         
+Sfikia  .17          .              .             1.0000         EPS         
+Sfikia  .18          .              .             1.0000         EPS         
+Sfikia  .19          .              .             1.0000         EPS         
+Sfikia  .20          .              .             1.0000         EPS         
+Sfikia  .21          .              .             1.0000         EPS         
+Sfikia  .22          .              .             1.0000         EPS         
+Sfikia  .23          .              .             1.0000         EPS         
+Sfikia  .24          .              .             1.0000         EPS         
+Stratos .1           .              .             1.0000         EPS         
+Stratos .2           .              .             1.0000         EPS         
+Stratos .3           .              .             1.0000         EPS         
+Stratos .4           .              .             1.0000         EPS         
+Stratos .5           .             1.0000         1.0000         EPS         
+Stratos .6           .              .             1.0000         EPS         
+Stratos .7           .              .             1.0000         EPS         
+Stratos .8           .              .             1.0000         EPS         
+Stratos .9           .              .             1.0000         EPS         
+Stratos .10          .              .             1.0000         EPS         
+Stratos .11          .              .             1.0000         EPS         
+Stratos .12          .              .             1.0000         EPS         
+Stratos .13          .              .             1.0000         EPS         
+Stratos .14          .              .             1.0000         EPS         
+Stratos .15          .              .             1.0000         EPS         
+Stratos .16          .              .             1.0000         EPS         
+Stratos .17          .              .             1.0000         EPS         
+Stratos .18          .              .             1.0000         EPS         
+Stratos .19          .              .             1.0000         EPS         
+Stratos .20          .              .             1.0000         EPS         
+Stratos .21          .              .             1.0000         EPS         
+Stratos .22          .              .             1.0000         EPS         
+Stratos .23          .              .             1.0000         EPS         
+Stratos .24          .              .             1.0000         EPS         
+
+---- VAR z  Binary variable equal to 1 if unit 'i' is desynchronized at the beginning of time 't'
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+AgiDim  .0           .              .             1.0000         EPS         
+AgiDim  .1           .              .             1.0000     -1200.0000      
+AgiDim  .2           .              .             1.0000     -1629.0000      
+AgiDim  .3           .              .             1.0000     -1541.0000      
+AgiDim  .4           .              .             1.0000     -1409.0000      
+AgiDim  .5           .              .             1.0000     -1299.0000      
+AgiDim  .6           .              .             1.0000     -1200.0000      
+AgiDim  .7           .              .             1.0000     -1200.0000      
+AgiDim  .8           .              .             1.0000     -2036.0000      
+AgiDim  .9           .              .             1.0000     -1200.0000      
+AgiDim  .10          .              .             1.0000     -4544.0000      
+AgiDim  .11          .              .             1.0000     -5127.0000      
+AgiDim  .12          .              .             1.0000     -5369.0000      
+AgiDim  .13          .              .             1.0000     -5787.0000      
+AgiDim  .14          .              .             1.0000     -6370.0000      
+AgiDim  .15          .              .             1.0000     -7129.0000      
+AgiDim  .16          .              .             1.0000     -6832.0000      
+AgiDim  .17          .              .             1.0000     -4962.0000      
+AgiDim  .18          .              .             1.0000     -4467.0000      
+AgiDim  .19          .              .             1.0000     -3224.0000      
+AgiDim  .20          .              .             1.0000     -2839.0000      
+AgiDim  .21          .              .             1.0000     -4346.0000      
+AgiDim  .22          .              .             1.0000     -6095.0000      
+AgiDim  .23          .              .             1.0000     -6469.0000      
+AgiDim  .24          .              .             1.0000     -5215.0000      
+Komotini.0           .              .             1.0000         EPS         
+Komotini.1           .              .             1.0000      -300.0000      
+Komotini.2           .             1.0000         1.0000      -300.0000      
+Komotini.3           .              .             1.0000      -300.0000      
+Komotini.4           .              .             1.0000      -300.0000      
+Komotini.5           .              .             1.0000      -300.0000      
+Komotini.6           .              .             1.0000      -300.0000      
+Komotini.7           .              .             1.0000      -300.0000      
+Komotini.8           .              .             1.0000      -300.0000      
+Komotini.9           .              .             1.0000      -300.0000      
+Komotini.10          .              .             1.0000     -1464.0000      
+Komotini.11          .              .             1.0000     -1782.0000      
+Komotini.12          .              .             1.0000     -1914.0000      
+Komotini.13          .              .             1.0000     -2142.0000      
+Komotini.14          .              .             1.0000     -2460.0000      
+Komotini.15          .              .             1.0000     -2874.0000      
+Komotini.16          .              .             1.0000     -2712.0000      
+Komotini.17          .              .             1.0000     -1692.0000      
+Komotini.18          .              .             1.0000     -1422.0000      
+Komotini.19          .              .             1.0000      -744.0000      
+Komotini.20          .              .             1.0000      -534.0000      
+Komotini.21          .              .             1.0000     -1356.0000      
+Komotini.22          .              .             1.0000     -2310.0000      
+Komotini.23          .              .             1.0000     -2514.0000      
+Komotini.24          .              .             1.0000     -1830.0000      
+Kremasta.1           .             1.0000         1.0000         EPS         
+Kremasta.2           .              .             1.0000         EPS         
+Kremasta.3           .              .             1.0000         EPS         
+Kremasta.4           .              .             1.0000         EPS         
+Kremasta.5           .              .             1.0000         EPS         
+Kremasta.6           .              .             1.0000         EPS         
+Kremasta.7           .              .             1.0000         EPS         
+Kremasta.8           .              .             1.0000         EPS         
+Kremasta.9           .              .             1.0000         EPS         
+Kremasta.10          .              .             1.0000         EPS         
+Kremasta.11          .              .             1.0000         EPS         
+Kremasta.12          .              .             1.0000         EPS         
+Kremasta.13          .              .             1.0000         EPS         
+Kremasta.14          .              .             1.0000         EPS         
+Kremasta.15          .              .             1.0000         EPS         
+Kremasta.16          .              .             1.0000         EPS         
+Kremasta.17          .              .             1.0000         EPS         
+Kremasta.18          .              .             1.0000         EPS         
+Kremasta.19          .              .             1.0000         EPS         
+Kremasta.20          .              .             1.0000         EPS         
+Kremasta.21          .              .             1.0000         EPS         
+Kremasta.22          .              .             1.0000         EPS         
+Kremasta.23          .              .             1.0000         EPS         
+Kremasta.24          .              .             1.0000         EPS         
+Sfikia  .1           .              .             1.0000         EPS         
+Sfikia  .2           .              .             1.0000         EPS         
+Sfikia  .3           .              .             1.0000         EPS         
+Sfikia  .4           .              .             1.0000         EPS         
+Sfikia  .5           .              .             1.0000         EPS         
+Sfikia  .6           .              .             1.0000         EPS         
+Sfikia  .7           .              .             1.0000         EPS         
+Sfikia  .8           .              .             1.0000         EPS         
+Sfikia  .9           .              .             1.0000         EPS         
+Sfikia  .10          .              .             1.0000         EPS         
+Sfikia  .11          .              .             1.0000         EPS         
+Sfikia  .12          .              .             1.0000         EPS         
+Sfikia  .13          .              .             1.0000         EPS         
+Sfikia  .14          .              .             1.0000         EPS         
+Sfikia  .15          .              .             1.0000         EPS         
+Sfikia  .16          .              .             1.0000         EPS         
+Sfikia  .17          .              .             1.0000         EPS         
+Sfikia  .18          .              .             1.0000         EPS         
+Sfikia  .19          .              .             1.0000         EPS         
+Sfikia  .20          .              .             1.0000         EPS         
+Sfikia  .21          .              .             1.0000         EPS         
+Sfikia  .22          .              .             1.0000         EPS         
+Sfikia  .23          .              .             1.0000         EPS         
+Sfikia  .24          .              .             1.0000         EPS         
+Stratos .1           .              .             1.0000         EPS         
+Stratos .2           .              .             1.0000         EPS         
+Stratos .3           .              .             1.0000         EPS         
+Stratos .4           .              .             1.0000         EPS         
+Stratos .5           .              .             1.0000         EPS         
+Stratos .6           .              .             1.0000         EPS         
+Stratos .7           .              .             1.0000         EPS         
+Stratos .8           .              .             1.0000         EPS         
+Stratos .9           .              .             1.0000         EPS         
+Stratos .10          .              .             1.0000         EPS         
+Stratos .11          .              .             1.0000         EPS         
+Stratos .12          .              .             1.0000         EPS         
+Stratos .13          .              .             1.0000         EPS         
+Stratos .14          .              .             1.0000         EPS         
+Stratos .15          .              .             1.0000         EPS         
+Stratos .16          .              .             1.0000         EPS         
+Stratos .17          .              .             1.0000         EPS         
+Stratos .18          .              .             1.0000         EPS         
+Stratos .19          .              .             1.0000         EPS         
+Stratos .20          .              .             1.0000         EPS         
+Stratos .21          .              .             1.0000         EPS         
+Stratos .22          .              .             1.0000         EPS         
+Stratos .23          .              .             1.0000         EPS         
+Stratos .24          .              .             1.0000         EPS         
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR Profit            -INF       611686.0000        +INF             .          
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+                             0     ERRORS
+GAMS 45.7.0  64fbf3ce Jan 18, 2024          WEX-WEI x86 64bit/MS Windows - 02/08/24 15:06:38 Page 8
+Optimal_Unit_Scheduling
+E x e c u t i o n
+
+
+----    224 Unit Power Output
+
+----    224 VARIABLE p.L  Power output of unit 'i' at time 't' (MW)
+
+                   0           1           8           9          10          11          12          13          14          15          16          17          18          19          20          21          22          23          24
+
+AgiDim                               170.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000     280.000
+Komotini     400.000     180.000     360.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000     420.000
+Kremasta     150.000                                                                 200.000     300.000     300.000     300.000                                                                 300.000     300.000
+Sfikia                                                                                           250.000     250.000     250.000                                                                 250.000     250.000
+Stratos                                                                              200.000     250.000     250.000     250.000                                                                 250.000     250.000
+
+
+----    225 Unit Status
+
+----    225 VARIABLE u.L  Binary variable equal to 1 if unit 'i' is running at time 't'
+
+                   0           1           5           6           7           8           9          10          11          12          13          14          15          16          17          18          19          20          21          22          23          24
+
+AgiDim                                                                     1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000
+Komotini       1.000       1.000                                           1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000
+Kremasta       1.000                   1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000
+Sfikia                                 1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000
+Stratos                                1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000       1.000
+
+
+----    226 Unit Commitment
+
+----    226 VARIABLE y.L  Binary variable equal to 1 if unit 'i' is synchronized at the beginning of time 't'
+
+                   5           8
+
+AgiDim                     1.000
+Komotini                   1.000
+Kremasta       1.000
+Sfikia         1.000
+Stratos        1.000
+
+
+----    227 Unit Decommitment
+
+----    227 VARIABLE z.L  Binary variable equal to 1 if unit 'i' is desynchronized at the beginning of time 't'
+
+                   1           2
+
+Komotini                   1.000
+Kremasta       1.000
+
+
+----    228 Total Profit
+            VARIABLE Profit.L              =   611686.000  
+
+
+EXECUTION TIME       =        1.281 SECONDS      4 MB  45.7.0 64fbf3ce WEX-WEI
+
+
+USER: GAMS Community License for Ioannis DeirmentzoglG240124|0002AO-GEN
+      Aristotle University of Thessaloniki, Dept. of Electrical aCL4550
+      License for teaching and research at degree granting institutions
+
+
+**** FILE SUMMARY
+
+Input      C:\Users\User\Downloads\Analysis_Electricity_Power_Systems_Project.gms
+Output     C:\Users\User\Downloads\Analysis_Electricity_Power_Systems_Project.lst

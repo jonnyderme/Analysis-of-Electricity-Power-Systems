@@ -19,7 +19,7 @@ Assignment for the "Analysis of Electricity Power Systems" Course
 - [📊 Model Overview](#-model-overview)
 - [✅ Constraints](#-constraints)
 - [🛠 Tools](#-tools)
-- [📁 Files](#-files)
+- [📁 Repository Structure](#-repository-structure)
 - [📈 Goal](#-goal)
 
 ---
@@ -84,11 +84,23 @@ Profit = Σ_t Σ_i [λ_t * p_i(t) - NLC_i * u_i(t) - b_i * p_i(t) - SUC_i * y_i(
 - **GAMS** (for MIP modeling)
 - **GLPK/CBC/Gurobi** (solver)
 
-## 📁 Files
-- `main.py`: Main script for model formulation and solution
-- `data.csv`: Input data for units and market prices
-- `README.md`: Project documentation
-
+## 📁 Repository Structure
+```
+📁 Repository Structure
+├── README.md # Project overview and documentation
+│ │
+├── Results/
+│ │ └── Analysis_Electricity_Power_Systems_Project.log # Solver log output
+│ │ Project Results.txt # Text file summarizing project results
+│ │
+├── GAMS/
+│ │ └── Analysis_Electricity_Power_Systems_Project.gms # GAMS model file
+│ │ └── Analysis_Electricity_Power_Systems_Project.gsp # GAMS project workspace
+│ │ └── Analysis_Electricity_Power_Systems_Project.lst # GAMS listing file (results/diagnostics)
+│ │
+├──  Report.pdf # Full report for the assignment
+├──  ΠΡΟΑΙΡΕΤΙΚΟ ΘΕΜΑ ΑΣΗΕ.pdf # Original assignment guidelines (Greek)
+```
 ## 📈 Goal
 Create an automated system to determine the most profitable 24-hour operational plan for all generation units under market and technical constraints.
 

@@ -1,8 +1,19 @@
-# Analysis-of-Electricity-Power-Systems
-# Calculation of the optimal start-up, operation and reservation schedule of (thermal and hydroelectric) units of a private producer
+# Analysis of Electricity Power Systems
+## Calculation of the optimal start-up, operation and reservation schedule of (thermal and hydroelectric) units of a private producer
 
-## 📘 Course
-**Power System Analysis** (8th Semester)
+---
+
+### Optional Assignment for "Analysis of Electricity Power Systems" Coursework (2023)
+Assignment for the "Analysis of Electricity Power Systems" Course  
+Faculty of Engineering, AUTh  
+School of Electrical and Computer Engineering  
+Electronics and Computers Department
+
+📚 *Course:* Computer Graphics                   
+🏛️ *Faculty:* AUTh - School of Electrical and Computer Engineering  
+📅 *Semester:* 7th Semester, 2023–2024
+
+---
 
 ## 📌 Problem Description
 A small private electricity producer  owns two (2) thermal and three (3) hydroelectric generation units. The technical specifications of these units are provided in **Table 1**. The producer participates in the **day-ahead electricity market**, assuming that the clearing prices for the next 24 hours are known through forecasts. As a **price-taker**, the producer cannot influence the market price due to holding a small market share.

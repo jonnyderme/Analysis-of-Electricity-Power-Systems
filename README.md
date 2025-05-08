@@ -57,8 +57,8 @@ Profit = Σ_t Σ_i [λ_t * p_i(t) - NLC_i * u_i(t) - b_i * p_i(t) - SUC_i * y_i(
 - Initial conditions for all variables
 
 ## 🛠 Tools
-- **Python**
-- **Pyomo** (for MIP modeling)
+- **GAMS**
+- **GAMS** (for MIP modeling)
 - **GLPK/CBC/Gurobi** (solver)
 
 ## 📁 Files

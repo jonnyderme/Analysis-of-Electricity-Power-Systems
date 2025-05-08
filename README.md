@@ -1,43 +1,55 @@
-# Analysis of Electricity Power Systems
-## Calculation of the optimal start-up, operation and reservation schedule of (thermal and hydroelectric) units of a private producer
+# ⚡ Analysis of Electricity Power Systems
+
+## 📝 Calculation of the Optimal Start-Up, Operation, and Reservation Schedule of (Thermal and Hydroelectric) Units of a Private Producer
 
 ---
 
-### Optional Assignment for "Analysis of Electricity Power Systems" Coursework (2023)
-Assignment for the "Analysis of Electricity Power Systems" Course  
-Faculty of Engineering, AUTh  
-School of Electrical and Computer Engineering  
-Electronics and Computers Department
+### 📂 Optional Assignment for "Analysis of Electricity Power Systems" Coursework (2023)
 
-📚 *Course:* Computer Graphics                   
+Assignment for the "Analysis of Electricity Power Systems" Course  
 🏛️ *Faculty:* AUTh - School of Electrical and Computer Engineering  
+🔧 *Department:* Electronics and Computers  
 📅 *Semester:* 7th Semester, 2023–2024
 
 ---
 
+## 📚 Table of Contents
+- [📌 Problem Description](#-problem-description)
+- [🎯 Objective](#-objective)
+- [📊 Model Overview](#-model-overview)
+- [✅ Constraints](#-constraints)
+- [🛠 Tools](#-tools)
+- [📁 Files](#-files)
+- [📈 Goal](#-goal)
+
+---
+
 ## 📌 Problem Description
-A small private electricity producer  owns two (2) thermal and three (3) hydroelectric generation units. The technical specifications of these units are provided in **Table 1**. The producer participates in the **day-ahead electricity market**, assuming that the clearing prices for the next 24 hours are known through forecasts. As a **price-taker**, the producer cannot influence the market price due to holding a small market share.
+
+A small private electricity producer owns two (2) thermal and three (3) hydroelectric generation units. The technical specifications of these units are provided in **Table 1**. The producer participates in the **day-ahead electricity market**, assuming that the clearing prices for the next 24 hours are known through forecasts. As a **price-taker**, the producer cannot influence the market price due to holding a small market share.
 
 The goal is to **maximize expected profit** by calculating the **optimal unit commitment, dispatch schedule, and start-up/shutdown planning** for the thermal and hydro units over a 24-hour period.
 
 ## 🎯 Objective
+
 Maximize profit from electricity sales in the day-ahead market while adhering to technical and operational constraints.
 
 ## 📊 Model Overview
+
 The problem is formulated as a **Mixed-Integer Programming (MIP)** model with binary and continuous decision variables.
 
-### Sets
+### 🔢 Sets
 - `i ∈ I`: Set of all generation units
 - `j ∈ J`: Set of hydro units (subset of `I`)
 - `t ∈ T`: Set of hours in the 24-hour scheduling horizon
 
-### Variables
+### 🧮 Variables
 - `p_i(t)`: Output power of unit `i` at hour `t` (MW)
 - `u_i(t) ∈ {0,1}`: 1 if unit `i` is online at hour `t`
 - `y_i(t) ∈ {0,1}`: 1 if unit `i` starts up at hour `t`
 - `z_i(t) ∈ {0,1}`: 1 if unit `i` shuts down at hour `t`
 
-### Parameters
+### 🛠️ Parameters
 - `λ_t`: Market clearing price at hour `t` (€/MWh)
 - `Pmin_i`, `Pmax_i`: Min/max output of unit `i` (MW)
 - `Emin_j`, `Emax_j`: Min/max energy for hydro unit `j` (MWh)
@@ -52,8 +64,9 @@ The problem is formulated as a **Mixed-Integer Programming (MIP)** model with bi
 - `Tini_i`: Initial on/off time at `t=0` (h)
 - `uini_i ∈ {0,1}`: Initial unit status at `t=0`
 
-### Objective Function
-Maximize:
+### ➗ Objective Function
+
+**Maximize Profit:**
 ```
 Profit = Σ_t Σ_i [λ_t * p_i(t) - NLC_i * u_i(t) - b_i * p_i(t) - SUC_i * y_i(t) - SDC_i * z_i(t)]
 ```
@@ -68,7 +81,6 @@ Profit = Σ_t Σ_i [λ_t * p_i(t) - NLC_i * u_i(t) - b_i * p_i(t) - SUC_i * y_i(
 - Initial conditions for all variables
 
 ## 🛠 Tools
-- **GAMS**
 - **GAMS** (for MIP modeling)
 - **GLPK/CBC/Gurobi** (solver)
 
